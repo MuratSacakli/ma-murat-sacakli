@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Meine Masterarbeit App</string>
+    <string name="name_hint">Dein Name</string>
+    <string name="greet_button">Begrüßen</string>
+    <string name="reset_button">Zurücksetzen</string>
+    <string name="greeting_with_name">Hallo, %1$s! 👋</string>
+    <string name="greeting_default">Hallo, Welt! 🌍</string>
+    <string name="current_date">Heute: %1$s</string>
+    <string name="click_count">Klicks: %1$d</string>
+</resources>
