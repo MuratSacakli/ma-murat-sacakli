@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flappy Mario</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #5c94fc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-family: 'Arial', sans-serif;
+      overflow: hidden;
+    }
+
+    #game-container {
+      position: relative;
+      width: 400px;
+      height: 600px;
+      background: #5c94fc;
+      border: 4px solid #222;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    #overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      z-index: 10;
+    }
+
+    #overlay h1 {
+      font-size: 2.4rem;
+      font-weight: 900;
+      text-shadow: 3px 3px 0 #b00;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+
+    #overlay p {
+      font-size: 1rem;
+      color: #ffe066;
+      margin-bottom: 4px;
+    }
+
+    #overlay .score-display {
+      font-size: 1.6rem;
+      font-weight: bold;
+      color: #fff;
+      margin: 12px 0;
+    }
+
+    #overlay button {
+      margin-top: 18px;
+      padding: 12px 36px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      background: #e52222;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 0 #8b0000;
+      transition: transform 0.1s;
+      letter-spacing: 1px;
+    }
+
+    #overlay button:active { transform: translateY(3px); box-shadow: 0 1px 0 #8b0000; }
+
+    #hud {
+      position: absolute;
+      top: 12px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-between;
+      padding: 0 18px;
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    .hud-box {
+      background: rgba(0,0,0,0.45);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: bold;
+      padding: 4px 12px;
+      border-radius: 6px;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="game-container">
+  <canvas id="canvas" width="400" height="600"></canvas>
+
+  <div id="hud">
+    <div class="hud-box">SCORE: <span id="score-val">0</span></div>
+    <div class="hud-box">BEST: <span id="best-val">0</span></div>
+  </div>
+
+  <div id="overlay">
+    <h1>&#127795; Flappy Mario</h1>
+    <p>Weiche den Rohren aus!</p>
+    <p style="font-size:0.85rem; color:#ccc;">LEERTASTE / KLICK / TIPPEN</p>
+    <div class="score-display" id="final-score" style="display:none"></div>
+    <button id="start-btn">SPIELEN</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width;
+const H = canvas.height;
+
+const overlay    = document.getElementById('overlay');
+const startBtn   = document.getElementById('start-btn');
+const finalScore = document.getElementById('final-score');
+const scoreVal   = document.getElementById('score-val');
+const bestVal    = document.getElementById('best-val');
+
+// ── Game constants ────────────────────────────────────────────────────────────
+const GRAVITY    = 0.45;
+const JUMP_VEL   = -9;
+const PIPE_W     = 60;
+const PIPE_GAP   = 160;
+const PIPE_SPEED = 2.6;
+const GROUND_H   = 60;
+const MARIO_X    = 90;
+const MARIO_W    = 36;
+const MARIO_H    = 40;
+
+// ── Palette helpers ───────────────────────────────────────────────────────────
+const SKY       = '#5c94fc';
+const CLOUD_C   = '#fff';
+const PIPE_BODY = '#4caf50';
+const PIPE_DARK = '#388e3c';
+const PIPE_CAP  = '#66bb6a';
+const PIPE_SHAD = '#2e7d32';
+const GROUND_T  = '#d4a843';
+const GROUND_B  = '#7b5027';
+const BRICK     = '#c67c3c';
+const BRICK_D   = '#8b4513';
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let mario, pipes, clouds, coins, score, best, gameState, animFrame, tick;
+
+function reset() {
+  mario = { y: H / 2 - 40, vy: 0, dead: false, frame: 0, frameTimer: 0 };
+  pipes  = [];
+  clouds = [
+    { x: 60,  y: 70,  w: 90,  speed: 0.4 },
+    { x: 220, y: 100, w: 70,  speed: 0.3 },
+    { x: 320, y: 55,  w: 110, speed: 0.5 },
+  ];
+  coins  = [];
+  score  = 0;
+  tick   = 0;
+  updateHUD();
+}
+
+function updateHUD() {
+  scoreVal.textContent = score;
+  bestVal.textContent  = best || 0;
+}
+
+// ── Drawing helpers ───────────────────────────────────────────────────────────
+
+function drawCloud(x, y, w) {
+  ctx.fillStyle = CLOUD_C;
+  const h = w * 0.4;
+  ctx.beginPath();
+  ctx.ellipse(x + w * 0.5, y + h * 0.6, w * 0.5, h * 0.4, 0, 0, Math.PI * 2);
+  ctx.ellipse(x + w * 0.3, y + h * 0.5, w * 0.3, h * 0.5, 0, 0, Math.PI * 2);
+  ctx.ellipse(x + w * 0.7, y + h * 0.55, w * 0.28, h * 0.45, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawGround() {
+  const gy = H - GROUND_H;
+  // top strip (dirt)
+  ctx.fillStyle = GROUND_T;
+  ctx.fillRect(0, gy, W, 14);
+  // main body
+  ctx.fillStyle = GROUND_B;
+  ctx.fillRect(0, gy + 14, W, GROUND_H - 14);
+  // brick pattern
+  ctx.fillStyle = BRICK_D;
+  const bw = 40, bh = 18;
+  for (let row = 0; row * bh < GROUND_H; row++) {
+    for (let col = 0; col * bw < W + bw; col++) {
+      const ox = (row % 2 === 0) ? 0 : bw / 2;
+      const bx = col * bw - ox;
+      const by = gy + 14 + row * bh;
+      ctx.strokeStyle = BRICK_D;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(bx + 1, by + 1, bw - 2, bh - 2);
+    }
+  }
+}
+
+function drawPipe(px, topH, botY) {
+  const capH = 18, capOff = 4;
+
+  // top pipe body
+  const grad1 = ctx.createLinearGradient(px, 0, px + PIPE_W, 0);
+  grad1.addColorStop(0,   PIPE_DARK);
+  grad1.addColorStop(0.3, PIPE_CAP);
+  grad1.addColorStop(1,   PIPE_DARK);
+  ctx.fillStyle = grad1;
+  ctx.fillRect(px, 0, PIPE_W, topH);
+
+  // top cap
+  ctx.fillStyle = PIPE_SHAD;
+  ctx.fillRect(px - capOff, topH - capH, PIPE_W + capOff * 2, capH);
+  const gCap = ctx.createLinearGradient(px - capOff, 0, px + PIPE_W + capOff, 0);
+  gCap.addColorStop(0,   PIPE_DARK);
+  gCap.addColorStop(0.3, PIPE_BODY);
+  gCap.addColorStop(1,   PIPE_DARK);
+  ctx.fillStyle = gCap;
+  ctx.fillRect(px - capOff + 2, topH - capH + 2, PIPE_W + capOff * 2 - 4, capH - 2);
+
+  // bottom pipe body
+  const grad2 = ctx.createLinearGradient(px, 0, px + PIPE_W, 0);
+  grad2.addColorStop(0,   PIPE_DARK);
+  grad2.addColorStop(0.3, PIPE_CAP);
+  grad2.addColorStop(1,   PIPE_DARK);
+  ctx.fillStyle = grad2;
+  ctx.fillRect(px, botY, PIPE_W, H - GROUND_H - botY);
+
+  // bottom cap
+  ctx.fillStyle = PIPE_SHAD;
+  ctx.fillRect(px - capOff, botY, PIPE_W + capOff * 2, capH);
+  ctx.fillStyle = gCap;
+  ctx.fillRect(px - capOff + 2, botY + 2, PIPE_W + capOff * 2 - 4, capH - 2);
+}
+
+function drawMario(y, dead) {
+  const mx = MARIO_X, my = y;
+  const mw = MARIO_W, mh = MARIO_H;
+
+  if (dead) {
+    // dead spin - draw tilted
+    ctx.save();
+    ctx.translate(mx + mw / 2, my + mh / 2);
+    ctx.rotate(tick * 0.18);
+    ctx.translate(-(mw / 2), -(mh / 2));
+  }
+
+  // Hat (red)
+  ctx.fillStyle = '#e52222';
+  ctx.fillRect(2, 0, mw - 4, 7);
+  ctx.fillRect(0, 5, mw, 5);
+
+  // Face (skin)
+  ctx.fillStyle = '#f5c89a';
+  ctx.fillRect(3, 10, mw - 6, 12);
+
+  // Eyes
+  ctx.fillStyle = '#222';
+  ctx.fillRect(8, 12, 4, 4);
+  ctx.fillRect(mw - 12, 12, 4, 4);
+
+  // Mustache
+  ctx.fillStyle = '#5c3317';
+  ctx.fillRect(4, 19, 10, 3);
+  ctx.fillRect(mw - 14, 19, 10, 3);
+
+  // Overalls (blue)
+  ctx.fillStyle = '#1565c0';
+  ctx.fillRect(1, 22, mw - 2, 14);
+
+  // Overall straps
+  ctx.fillStyle = '#1976d2';
+  ctx.fillRect(5, 22, 8, 5);
+  ctx.fillRect(mw - 13, 22, 8, 5);
+
+  // Shirt (red)
+  ctx.fillStyle = '#e52222';
+  ctx.fillRect(1, 36, 10, 4);
+  ctx.fillRect(mw - 11, 36, 10, 4);
+
+  // Shoes (brown)
+  ctx.fillStyle = '#5c3317';
+  ctx.fillRect(0, mh - 6, 14, 6);
+  ctx.fillRect(mw - 14, mh - 6, 14, 6);
+
+  if (dead) ctx.restore();
+  else {
+    // small shadow below
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.fillRect(mx + 2, my + mh + 2, mw - 4, 5);
+  }
+}
+
+function drawCoin(c) {
+  ctx.fillStyle = '#ffe066';
+  ctx.beginPath();
+  ctx.arc(c.x, c.y, 9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#f9a825';
+  ctx.beginPath();
+  ctx.arc(c.x, c.y, 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 9px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('$', c.x, c.y);
+}
+
+// ── Background stars/decorations ──────────────────────────────────────────────
+let bgTick = 0;
+
+function drawBackground() {
+  // sky gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, H - GROUND_H);
+  grad.addColorStop(0, '#3a7bd5');
+  grad.addColorStop(1, '#74b9ff');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H - GROUND_H);
+}
+
+// ── Collision ─────────────────────────────────────────────────────────────────
+function hitTest() {
+  const mx1 = MARIO_X + 4, mx2 = MARIO_X + MARIO_W - 4;
+  const my1 = mario.y + 4,  my2 = mario.y + MARIO_H - 4;
+
+  // ground / ceiling
+  if (mario.y + MARIO_H >= H - GROUND_H) return true;
+  if (mario.y <= 0) return true;
+
+  for (const p of pipes) {
+    const px1 = p.x, px2 = p.x + PIPE_W;
+    if (mx2 > px1 && mx1 < px2) {
+      if (my1 < p.topH || my2 > p.botY) return true;
+    }
+  }
+  return false;
+}
+
+// ── Game loop ─────────────────────────────────────────────────────────────────
+function spawnPipe() {
+  const minTop = 70;
+  const maxTop = H - GROUND_H - PIPE_GAP - 70;
+  const topH   = Math.floor(Math.random() * (maxTop - minTop) + minTop);
+  pipes.push({ x: W + 10, topH, botY: topH + PIPE_GAP, scored: false });
+  // maybe add coin in gap center
+  if (Math.random() < 0.5) {
+    coins.push({ x: W + 10 + PIPE_W / 2, y: topH + PIPE_GAP / 2, alive: true });
+  }
+}
+
+function jump() {
+  if (gameState !== 'playing') return;
+  mario.vy = JUMP_VEL;
+  // small particle burst (not visual here, audio cue idea)
+}
+
+function update() {
+  tick++;
+  bgTick++;
+
+  // clouds
+  for (const c of clouds) {
+    c.x -= c.speed;
+    if (c.x + c.w < 0) c.x = W + 20;
+  }
+
+  if (gameState !== 'playing') return;
+
+  // mario physics
+  mario.vy += GRAVITY;
+  mario.y  += mario.vy;
+
+  // spawn pipes
+  if (tick % 90 === 0) spawnPipe();
+
+  // move pipes + score
+  for (const p of pipes) {
+    p.x -= PIPE_SPEED;
+    if (!p.scored && p.x + PIPE_W < MARIO_X) {
+      p.scored = true;
+      score++;
+      updateHUD();
+    }
+  }
+  pipes = pipes.filter(p => p.x + PIPE_W > -10);
+
+  // coins
+  for (const c of coins) {
+    c.x -= PIPE_SPEED;
+    if (c.alive) {
+      const dx = c.x - (MARIO_X + MARIO_W / 2);
+      const dy = c.y - (mario.y + MARIO_H / 2);
+      if (Math.sqrt(dx * dx + dy * dy) < 20) {
+        c.alive = false;
+        score++;
+        updateHUD();
+      }
+    }
+  }
+  coins = coins.filter(c => c.x > -20);
+
+  // collision
+  if (hitTest()) {
+    mario.dead = true;
+    gameState  = 'dead';
+    if (score > (best || 0)) best = score;
+    updateHUD();
+    setTimeout(showGameOver, 900);
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  drawBackground();
+
+  // clouds
+  for (const c of clouds) drawCloud(c.x, c.y, c.w);
+
+  // pipes
+  for (const p of pipes) drawPipe(p.x, p.topH, p.botY);
+
+  // coins
+  for (const c of coins) if (c.alive) drawCoin(c);
+
+  // ground
+  drawGround();
+
+  // mario
+  ctx.save();
+  ctx.translate(MARIO_X, mario.y);
+  drawMario(0, mario.dead);
+  ctx.restore();
+}
+
+function loop() {
+  update();
+  draw();
+  animFrame = requestAnimationFrame(loop);
+}
+
+// ── UI ────────────────────────────────────────────────────────────────────────
+function showGameOver() {
+  finalScore.textContent = `Score: ${score}   Best: ${best}`;
+  finalScore.style.display = 'block';
+  startBtn.textContent = 'NOCHMAL';
+  overlay.style.display = 'flex';
+}
+
+function startGame() {
+  overlay.style.display = 'none';
+  finalScore.style.display = 'none';
+  gameState = 'playing';
+  reset();
+  if (!animFrame) loop();
+}
+
+startBtn.addEventListener('click', startGame);
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' || e.key === ' ') {
+    e.preventDefault();
+    if (gameState === 'playing') jump();
+    else if (overlay.style.display === 'none') {} // ignore
+  }
+});
+
+canvas.addEventListener('click',     jump);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); jump(); }, { passive: false });
+
+// initial idle loop (clouds only)
+gameState = 'idle';
+reset();
+loop();
+</script>
+</body>
+</html>
