@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from config import settings
 from database import init_db
-from routers import salons, hairdressers, services, appointments, calls
+from routers import salons, hairdressers, services, appointments, calls, customers
 
 
 @asynccontextmanager
@@ -39,6 +39,7 @@ app.include_router(hairdressers.router)
 app.include_router(services.router)
 app.include_router(appointments.router)
 app.include_router(calls.router)
+app.include_router(customers.router)
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_dir):

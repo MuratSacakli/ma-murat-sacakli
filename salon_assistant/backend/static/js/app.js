@@ -21,6 +21,7 @@ function switchPage(page) {
         hairdressers: 'Friseure',
         services: 'Dienstleistungen',
         salon: 'Salon-Einstellungen',
+        customers: 'Kunden',
         calls: 'Anruf-Protokoll'
     }[page] || page;
 
@@ -29,6 +30,7 @@ function switchPage(page) {
     else if (page === 'hairdressers') loadHairdressers();
     else if (page === 'services') loadServices();
     else if (page === 'salon') loadSalonSettings();
+    else if (page === 'customers') loadCustomers();
     else if (page === 'calls') loadCallLog();
 }
 
@@ -400,6 +402,104 @@ async function saveSalon(e) {
         await apiFetch(`/api/salons/${currentSalonId}`, { method: 'PUT', body: JSON.stringify(payload) });
         showToast('Einstellungen gespeichert');
         loadSalons();
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+// ─── Customers ───────────────────────────────────────────────────────────────
+const LANG_LABELS = { de: 'Deutsch 🇩🇪', en: 'Englisch 🇬🇧', tr: 'Türkçe 🇹🇷' };
+
+async function loadCustomers(search = '') {
+    if (!currentSalonId) return;
+    const url = `/api/customers/?salon_id=${currentSalonId}` + (search ? `&search=${encodeURIComponent(search)}` : '');
+    try {
+        const customers = await apiFetch(url);
+        const tbody = document.getElementById('customers-tbody');
+        if (customers.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Keine Kunden gefunden</td></tr>';
+            return;
+        }
+        tbody.innerHTML = customers.map(c => {
+            const lastVisit = c.last_visit ? new Date(c.last_visit).toLocaleDateString('de-DE') : '—';
+            return `<tr>
+                <td><strong>${escHtml(c.name)}</strong></td>
+                <td>${escHtml(c.phone)}</td>
+                <td>${LANG_LABELS[c.preferred_language] || c.preferred_language}</td>
+                <td>${c.visit_count}</td>
+                <td>${lastVisit}</td>
+                <td>${escHtml(c.notes || '—')}</td>
+                <td style="display:flex;gap:6px">
+                    <button class="btn btn-sm btn-secondary" onclick="openEditCustomer(${JSON.stringify(c).replace(/"/g,'&quot;')})">Bearbeiten</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteCustomer(${c.id})">Löschen</button>
+                </td>
+            </tr>`;
+        }).join('');
+    } catch(e) {
+        showToast('Kunden konnten nicht geladen werden', 'error');
+    }
+}
+
+function searchCustomers() {
+    const val = document.getElementById('customer-search').value;
+    loadCustomers(val);
+}
+
+async function createCustomer(e) {
+    e.preventDefault();
+    if (!currentSalonId) return showToast('Bitte wählen Sie einen Salon', 'error');
+    const form = e.target;
+    const data = Object.fromEntries(new FormData(form));
+    try {
+        await apiFetch('/api/customers/', {
+            method: 'POST',
+            body: JSON.stringify({ ...data, salon_id: currentSalonId })
+        });
+        showToast('Kunde angelegt');
+        closeModal('modal-create-customer');
+        form.reset();
+        loadCustomers();
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+function openEditCustomer(customer) {
+    document.getElementById('edit-customer-id').value = customer.id;
+    document.getElementById('edit-customer-name').value = customer.name;
+    document.getElementById('edit-customer-phone').value = customer.phone;
+    document.getElementById('edit-customer-email').value = customer.email || '';
+    document.getElementById('edit-customer-lang').value = customer.preferred_language || 'de';
+    document.getElementById('edit-customer-notes').value = customer.notes || '';
+    openModal('modal-edit-customer');
+}
+
+async function saveCustomer(e) {
+    e.preventDefault();
+    const id = document.getElementById('edit-customer-id').value;
+    const payload = {
+        name: document.getElementById('edit-customer-name').value,
+        phone: document.getElementById('edit-customer-phone').value,
+        email: document.getElementById('edit-customer-email').value || null,
+        preferred_language: document.getElementById('edit-customer-lang').value,
+        notes: document.getElementById('edit-customer-notes').value || null,
+    };
+    try {
+        await apiFetch(`/api/customers/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+        showToast('Kunde gespeichert');
+        closeModal('modal-edit-customer');
+        loadCustomers();
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function deleteCustomer(id) {
+    if (!confirm('Kunden wirklich löschen?')) return;
+    try {
+        await apiFetch(`/api/customers/${id}`, { method: 'DELETE' });
+        showToast('Kunde gelöscht');
+        loadCustomers();
     } catch(e) {
         showToast(e.message, 'error');
     }

@@ -87,20 +87,36 @@ def create_appointment_from_booking(db: Session, salon_id: int, booking_data: di
     return appointment
 
 
-def format_confirmation_message(appointment: Appointment, hairdresser_name: str) -> str:
-    date_str = appointment.start_time.strftime("%A, den %d.%m.%Y")
+def format_confirmation_message(appointment: Appointment, hairdresser_name: str, language: str = "de") -> str:
+    date_str = appointment.start_time.strftime("%d.%m.%Y")
     time_str = appointment.start_time.strftime("%H:%M")
-    return (
-        f"Perfekt! Ich habe Ihren Termin erfolgreich gebucht. "
-        f"{date_str} um {time_str} Uhr bei {hairdresser_name} "
-        f"für {appointment.services}. "
-        f"Gesamtpreis: {appointment.total_price:.2f} Euro. "
-        f"Wir freuen uns auf Ihren Besuch, {appointment.customer_name}! Auf Wiederhören."
-    )
+    price = f"{appointment.total_price:.2f}" if appointment.total_price else "0.00"
+    name = appointment.customer_name
+
+    messages = {
+        "de": (
+            f"Perfekt! Ihr Termin ist gebucht, {name}. "
+            f"{date_str} um {time_str} Uhr bei {hairdresser_name} für {appointment.services}. "
+            f"Gesamtpreis: {price} Euro. Wir freuen uns auf Ihren Besuch! Auf Wiederhören."
+        ),
+        "en": (
+            f"Perfect! Your appointment is booked, {name}. "
+            f"{date_str} at {time_str} with {hairdresser_name} for {appointment.services}. "
+            f"Total: {price} Euro. We look forward to seeing you! Goodbye."
+        ),
+        "tr": (
+            f"Harika! Randevunuz oluşturuldu, {name}. "
+            f"{date_str} saat {time_str}'de {hairdresser_name} ile {appointment.services}. "
+            f"Toplam: {price} Euro. Sizi görmekten mutluluk duyacağız! Güle güle."
+        ),
+    }
+    return messages.get(language, messages["de"])
 
 
-def format_conflict_message() -> str:
-    return (
-        "Leider ist dieser Termin bereits vergeben. "
-        "Möchten Sie einen anderen Zeitpunkt wählen?"
-    )
+def format_conflict_message(language: str = "de") -> str:
+    messages = {
+        "de": "Leider ist dieser Termin bereits vergeben. Möchten Sie einen anderen Zeitpunkt wählen?",
+        "en": "Unfortunately this time slot is already taken. Would you like to choose a different time?",
+        "tr": "Maalesef bu zaman dilimi dolu. Farklı bir zaman seçmek ister misiniz?",
+    }
+    return messages.get(language, messages["de"])

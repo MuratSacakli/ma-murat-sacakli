@@ -1,6 +1,6 @@
 import json
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional
 import anthropic
 import sys
@@ -10,70 +10,98 @@ from config import settings
 
 client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
-SYSTEM_PROMPT = """Du bist ein freundlicher Telefonassistent für einen Friseursalon.
-Du sprichst ausschließlich Deutsch und hilfst Kunden dabei, Termine zu buchen.
+LANG_LABELS = {
+    "de": {"customer": "Kunde", "assistant": "Assistent"},
+    "en": {"customer": "Customer", "assistant": "Assistant"},
+    "tr": {"customer": "Müşteri",  "assistant": "Asistan"},
+}
 
-Deine Aufgaben:
-1. Begrüße den Kunden herzlich mit dem Salonnamen
-2. Frage nach dem gewünschten Friseur (nenne die verfügbaren Namen)
-3. Frage nach der gewünschten Dienstleistung (nenne die verfügbaren Dienstleistungen mit Preisen)
-4. Frage nach dem Wunschtermin (Datum und Uhrzeit)
-5. Frage nach dem Namen und der Telefonnummer des Kunden
-6. Bestätige die Buchung
+SYSTEM_PROMPT = """You are a friendly phone assistant for a hair salon. You MUST respond in the language the customer is speaking.
 
-Wichtige Regeln:
-- Sei immer freundlich und professionell
-- Sprich natürlich, wie ein echter Mitarbeiter
-- Halte Antworten kurz und klar (max. 3 Sätze)
-- Wenn du Informationen sammelst, extrahiere sie präzise
-- Bei Unklarheiten frage freundlich nach
-- Das heutige Datum ist {today}
+Supported languages: German (de), English (en), Turkish (tr).
+- If the customer speaks German → respond in German
+- If the customer speaks English → respond in English
+- If the customer speaks Turkish → respond in Turkish
 
-Salon-Informationen:
+You naturally handle names from all backgrounds:
+Arabic (Mohamed, Fatima, Omar...), Turkish (Murat, Ayşe, Yusuf...),
+Albanian (Arben, Blerim, Shqipe...), Bosnian (Amir, Amira, Haris...),
+German (Thomas, Maria, Klaus...) and all other names.
+Always spell back names exactly as given — never change or Germanize them.
+
+Your tasks:
+1. Greet the customer. If they are a returning customer, greet them by name and mention their last visit.
+2. Ask which hairdresser they prefer (list available names)
+3. Ask which service(s) they want (list services with prices)
+4. Ask for preferred date and time
+5. If new customer: ask for their name and phone number
+6. Confirm the booking
+
+Rules:
+- Always friendly and natural, like a real employee
+- Keep answers short (max 3 sentences)
+- Today is {today}
+
+Salon information:
 {salon_info}
 
-Verfügbare Friseure:
+Available hairdressers:
 {hairdressers}
 
-Verfügbare Dienstleistungen:
+Available services:
 {services}
 
-Gesammelte Buchungsdaten bisher:
+Returning customer info (if known):
+{customer_info}
+
+Booking data collected so far:
 {booking_data}
 
-Wenn alle Buchungsdaten vollständig sind (Friseur, Dienstleistung(en), Datum+Uhrzeit, Kundenname, Kundennummer),
-gib am Ende deiner Antwort EXAKT diesen JSON-Block aus (in keinem anderen Format):
-BOOKING_COMPLETE:{{
-  "hairdresser_name": "Name des Friseurs",
-  "services": ["Dienstleistung 1", "Dienstleistung 2"],
-  "date": "YYYY-MM-DD",
-  "time": "HH:MM",
-  "customer_name": "Kundenname",
-  "customer_phone": "Telefonnummer"
-}}"""
+When ALL booking data is complete (hairdresser, service(s), date+time, customer name, customer phone),
+output EXACTLY this JSON at the end of your response — no other format:
+BOOKING_COMPLETE:{{"hairdresser_name": "...", "services": ["..."], "date": "YYYY-MM-DD", "time": "HH:MM", "customer_name": "...", "customer_phone": "...", "detected_language": "de|en|tr"}}"""
 
 
-def build_system_prompt(salon, hairdressers, services, booking_data: dict) -> str:
-    salon_info = f"Name: {salon.name}\nAdresse: {salon.address or 'nicht angegeben'}\nÖffnungszeiten: {salon.opening_time} - {salon.closing_time} Uhr"
+def build_system_prompt(salon, hairdressers, services, booking_data: dict, customer=None) -> str:
+    salon_info = (
+        f"Name: {salon.name}\n"
+        f"Address: {salon.address or 'not specified'}\n"
+        f"Opening hours: {salon.opening_time} - {salon.closing_time}"
+    )
 
     hairdressers_text = "\n".join([
-        f"- {h.name}" + (f" (Spezialisierung: {h.specialization})" if h.specialization else "")
+        f"- {h.name}" + (f" (specialization: {h.specialization})" if h.specialization else "")
         for h in hairdressers
-    ]) or "Keine Friseure verfügbar"
+    ]) or "No hairdressers available"
 
     services_text = "\n".join([
-        f"- {s.name}: {s.price:.2f}€, Dauer: {s.duration_minutes} Min."
+        f"- {s.name}: {s.price:.2f}€, duration: {s.duration_minutes} min"
         + (f" ({s.description})" if s.description else "")
         for s in services
-    ]) or "Keine Dienstleistungen verfügbar"
+    ]) or "No services available"
 
-    booking_summary = json.dumps(booking_data, ensure_ascii=False, indent=2) if booking_data else "Noch keine Daten gesammelt"
+    if customer:
+        last_visit = customer.last_visit.strftime("%d.%m.%Y") if customer.last_visit else "first visit"
+        pref_lang = {"de": "German", "en": "English", "tr": "Turkish"}.get(customer.preferred_language, "German")
+        customer_info = (
+            f"Name: {customer.name}\n"
+            f"Phone: {customer.phone}\n"
+            f"Visits: {customer.visit_count}\n"
+            f"Last visit: {last_visit}\n"
+            f"Preferred language: {pref_lang}\n"
+            + (f"Notes: {customer.notes}" if customer.notes else "")
+        )
+    else:
+        customer_info = "New customer (not yet in database)"
+
+    booking_summary = json.dumps(booking_data, ensure_ascii=False, indent=2) if booking_data else "No data collected yet"
 
     return SYSTEM_PROMPT.format(
         today=datetime.now().strftime("%A, %d.%m.%Y"),
         salon_info=salon_info,
         hairdressers=hairdressers_text,
         services=services_text,
+        customer_info=customer_info,
         booking_data=booking_summary
     )
 
@@ -89,8 +117,7 @@ def extract_booking_from_response(response_text: str) -> Optional[dict]:
 
 
 def clean_response_for_speech(response_text: str) -> str:
-    cleaned = re.sub(r'BOOKING_COMPLETE:\{.*?\}', '', response_text, flags=re.DOTALL)
-    return cleaned.strip()
+    return re.sub(r'BOOKING_COMPLETE:\{.*?\}', '', response_text, flags=re.DOTALL).strip()
 
 
 def get_ai_response(
@@ -98,9 +125,10 @@ def get_ai_response(
     salon,
     hairdressers: list,
     services: list,
-    booking_data: dict
+    booking_data: dict,
+    customer=None
 ) -> tuple[str, Optional[dict]]:
-    system_prompt = build_system_prompt(salon, hairdressers, services, booking_data)
+    system_prompt = build_system_prompt(salon, hairdressers, services, booking_data, customer)
 
     response = client.messages.create(
         model=settings.CLAUDE_MODEL,
@@ -116,9 +144,17 @@ def get_ai_response(
     return speech_text, booking_complete
 
 
-def get_greeting(salon_name: str) -> str:
-    return (
-        f"Guten Tag! Sie sind verbunden mit dem Friseursalon {salon_name}. "
-        f"Ich bin Ihr digitaler Buchungsassistent. "
-        f"Wie kann ich Ihnen helfen? Möchten Sie einen Termin vereinbaren?"
-    )
+def get_greeting(salon_name: str, customer=None, language: str = "de") -> str:
+    if customer:
+        greetings = {
+            "de": f"Guten Tag, {customer.name}! Schön, dass Sie sich wieder bei {salon_name} melden. Wie kann ich Ihnen helfen?",
+            "en": f"Hello, {customer.name}! Great to hear from you again at {salon_name}. How can I help you?",
+            "tr": f"Merhaba, {customer.name}! {salon_name}'ı tekrar aradığınız için teşekkürler. Size nasıl yardımcı olabilirim?",
+        }
+    else:
+        greetings = {
+            "de": f"Guten Tag! Sie sind verbunden mit dem Friseursalon {salon_name}. Ich bin Ihr digitaler Buchungsassistent. Wie kann ich Ihnen helfen? Sie können auch auf Englisch oder Türkisch sprechen.",
+            "en": f"Hello! You've reached {salon_name}. I'm your digital booking assistant. How can I help you today?",
+            "tr": f"Merhaba! {salon_name}'ı aradınız. Ben dijital rezervasyon asistanınızım. Size nasıl yardımcı olabilirim?",
+        }
+    return greetings.get(language, greetings["de"])

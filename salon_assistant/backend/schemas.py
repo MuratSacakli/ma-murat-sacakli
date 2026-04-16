@@ -131,3 +131,36 @@ class AvailabilityRequest(BaseModel):
     hairdresser_id: int
     date: str
     duration_minutes: int
+
+
+class CustomerBase(BaseModel):
+    name: str
+    phone: str
+    email: Optional[str] = None
+    preferred_language: str = "de"
+    preferred_hairdresser_id: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class CustomerCreate(CustomerBase):
+    salon_id: int
+
+
+class CustomerUpdate(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    preferred_language: Optional[str] = None
+    preferred_hairdresser_id: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class CustomerResponse(CustomerBase):
+    id: int
+    salon_id: int
+    visit_count: int
+    created_at: datetime
+    last_visit: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True

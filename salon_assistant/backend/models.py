@@ -25,6 +25,7 @@ class Salon(Base):
     services = relationship("Service", back_populates="salon", cascade="all, delete-orphan")
     appointments = relationship("Appointment", back_populates="salon", cascade="all, delete-orphan")
     call_sessions = relationship("CallSession", back_populates="salon", cascade="all, delete-orphan")
+    customers = relationship("Customer", back_populates="salon", cascade="all, delete-orphan")
 
 
 class Hairdresser(Base):
@@ -76,13 +77,34 @@ class Appointment(Base):
     hairdresser = relationship("Hairdresser", back_populates="appointments")
 
 
+class Customer(Base):
+    __tablename__ = "customers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    salon_id = Column(Integer, ForeignKey("salons.id"), nullable=False)
+    name = Column(String(200), nullable=False)
+    phone = Column(String(50), nullable=False, index=True)
+    email = Column(String(200))
+    preferred_language = Column(String(10), default="de")  # de, en, tr
+    preferred_hairdresser_id = Column(Integer, ForeignKey("hairdressers.id"), nullable=True)
+    notes = Column(Text)
+    visit_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_visit = Column(DateTime)
+
+    salon = relationship("Salon", back_populates="customers")
+    preferred_hairdresser = relationship("Hairdresser")
+
+
 class CallSession(Base):
     __tablename__ = "call_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
     salon_id = Column(Integer, ForeignKey("salons.id"), nullable=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
     call_sid = Column(String(200), unique=True, nullable=False)
     caller_phone = Column(String(50))
+    detected_language = Column(String(10), default="de")
     conversation_history = Column(Text, default="[]")
     booking_data = Column(Text, default="{}")
     status = Column(String(50), default="active")
@@ -90,3 +112,4 @@ class CallSession(Base):
     ended_at = Column(DateTime)
 
     salon = relationship("Salon", back_populates="call_sessions")
+    customer = relationship("Customer")
