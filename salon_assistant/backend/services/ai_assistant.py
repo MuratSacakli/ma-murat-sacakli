@@ -6,9 +6,6 @@ import anthropic
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import settings
-
-client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
 LANG_LABELS = {
     "de": {"customer": "Kunde", "assistant": "Assistent"},
@@ -126,12 +123,22 @@ def get_ai_response(
     hairdressers: list,
     services: list,
     booking_data: dict,
-    customer=None
+    customer=None,
+    runtime_cfg: dict = None
 ) -> tuple[str, Optional[dict]]:
     system_prompt = build_system_prompt(salon, hairdressers, services, booking_data, customer)
 
+    if runtime_cfg:
+        api_key = runtime_cfg["anthropic_api_key"]
+        model = runtime_cfg["claude_model"]
+    else:
+        from config import settings
+        api_key = settings.ANTHROPIC_API_KEY
+        model = settings.CLAUDE_MODEL
+
+    client = anthropic.Anthropic(api_key=api_key)
     response = client.messages.create(
-        model=settings.CLAUDE_MODEL,
+        model=model,
         max_tokens=500,
         system=system_prompt,
         messages=conversation_history

@@ -16,6 +16,7 @@ function switchPage(page) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById(`page-${page}`)?.classList.add('active');
     document.getElementById('page-title').textContent = {
+        config: 'System-Konfiguration',
         dashboard: 'Dashboard',
         appointments: 'Termine',
         hairdressers: 'Friseure',
@@ -31,6 +32,7 @@ function switchPage(page) {
     else if (page === 'services') loadServices();
     else if (page === 'salon') loadSalonSettings();
     else if (page === 'customers') loadCustomers();
+    else if (page === 'config') loadConfig();
     else if (page === 'calls') loadCallLog();
 }
 
@@ -405,6 +407,103 @@ async function saveSalon(e) {
     } catch(e) {
         showToast(e.message, 'error');
     }
+}
+
+// ─── System Config ────────────────────────────────────────────────────────────
+async function loadConfig() {
+    try {
+        const [cfg, models] = await Promise.all([
+            apiFetch('/api/settings/'),
+            apiFetch('/api/settings/models')
+        ]);
+
+        // Modell-Dropdown füllen
+        const sel = document.getElementById('cfg-claude-model');
+        sel.innerHTML = models.map(m =>
+            `<option value="${m.id}" ${m.id === cfg.claude_model ? 'selected' : ''}>${escHtml(m.label)}</option>`
+        ).join('');
+
+        // Felder befüllen — API-Keys nur als Hinweis anzeigen, nie im Klartext
+        document.getElementById('cfg-anthropic-key').placeholder = cfg.anthropic_api_key_set
+            ? `Gesetzt: ${cfg.anthropic_api_key_preview}` : 'sk-ant-...';
+        document.getElementById('cfg-anthropic-key-preview').textContent = cfg.anthropic_api_key_set
+            ? `✅ API-Key hinterlegt (${cfg.anthropic_api_key_preview})` : '❌ Noch kein API-Key';
+
+        document.getElementById('cfg-twilio-sid').value = cfg.twilio_account_sid || '';
+        document.getElementById('cfg-twilio-phone').value = cfg.twilio_phone_number || '';
+        document.getElementById('cfg-base-url').value = cfg.base_url || window.location.origin;
+
+        // Webhook-URL aktualisieren
+        const baseUrl = cfg.base_url || window.location.origin;
+        document.getElementById('webhook-display').textContent = `${baseUrl}/calls/incoming`;
+
+        if (cfg.updated_at) {
+            const bar = document.getElementById('config-status-bar');
+            bar.className = 'config-status-bar ok';
+            bar.textContent = `✅ Zuletzt gespeichert: ${new Date(cfg.updated_at).toLocaleString('de-DE')}`;
+            bar.style.display = 'block';
+        }
+    } catch(e) {
+        showToast('Konfiguration konnte nicht geladen werden', 'error');
+    }
+}
+
+async function saveConfig() {
+    const payload = {};
+
+    const key = document.getElementById('cfg-anthropic-key').value.trim();
+    if (key) payload.anthropic_api_key = key;
+
+    const model = document.getElementById('cfg-claude-model').value;
+    if (model) payload.claude_model = model;
+
+    const sid = document.getElementById('cfg-twilio-sid').value.trim();
+    if (sid) payload.twilio_account_sid = sid;
+
+    const token = document.getElementById('cfg-twilio-token').value.trim();
+    if (token) payload.twilio_auth_token = token;
+
+    const phone = document.getElementById('cfg-twilio-phone').value.trim();
+    if (phone) payload.twilio_phone_number = phone;
+
+    const url = document.getElementById('cfg-base-url').value.trim();
+    if (url) payload.base_url = url;
+
+    if (Object.keys(payload).length === 0) {
+        showToast('Keine Änderungen zum Speichern', 'info');
+        return;
+    }
+
+    try {
+        await apiFetch('/api/settings/', { method: 'PUT', body: JSON.stringify(payload) });
+        showToast('Konfiguration gespeichert ✅');
+        // Auth-Token-Feld leeren (Sicherheit)
+        document.getElementById('cfg-twilio-token').value = '';
+        document.getElementById('cfg-anthropic-key').value = '';
+        await loadConfig();
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function testConnection(service) {
+    const resultEl = document.getElementById(`test-${service}-result`);
+    resultEl.className = 'test-result';
+    resultEl.textContent = '⏳ Teste...';
+    try {
+        const results = await apiFetch('/api/settings/test-connection', { method: 'POST' });
+        const r = results[service];
+        resultEl.className = `test-result ${r.ok ? 'ok' : 'err'}`;
+        resultEl.textContent = r.ok ? `✅ ${r.message}` : `❌ ${r.message}`;
+    } catch(e) {
+        resultEl.className = 'test-result err';
+        resultEl.textContent = `❌ ${e.message}`;
+    }
+}
+
+function toggleVisibility(inputId) {
+    const input = document.getElementById(inputId);
+    input.type = input.type === 'password' ? 'text' : 'password';
 }
 
 // ─── Customers ───────────────────────────────────────────────────────────────

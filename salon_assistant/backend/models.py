@@ -113,3 +113,21 @@ class CallSession(Base):
 
     salon = relationship("Salon", back_populates="call_sessions")
     customer = relationship("Customer")
+
+
+class SystemSettings(Base):
+    """Globale Systemkonfiguration — wird im Dashboard gepflegt, überschreibt .env"""
+    __tablename__ = "system_settings"
+
+    id = Column(Integer, primary_key=True, default=1)
+    # Anthropic / KI
+    anthropic_api_key = Column(String(500))
+    claude_model = Column(String(100), default="claude-sonnet-4-6")
+    # Twilio
+    twilio_account_sid = Column(String(100))
+    twilio_auth_token = Column(String(100))
+    twilio_phone_number = Column(String(50))
+    # Server
+    base_url = Column(String(500))
+    # Sonstiges
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

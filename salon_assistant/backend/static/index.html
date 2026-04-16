@@ -32,6 +32,9 @@
                 <a href="#" class="nav-item" data-page="salon">
                     <span class="nav-icon">🏪</span> Salon-Einstellungen
                 </a>
+                <a href="#" class="nav-item" data-page="config">
+                    <span class="nav-icon">⚙️</span> System-Config
+                </a>
                 <a href="#" class="nav-item" data-page="customers">
                     <span class="nav-icon">👥</span> Kunden
                 </a>
@@ -222,6 +225,95 @@
                         <p>Konfigurieren Sie in Ihrem Twilio-Dashboard folgenden Webhook:</p>
                         <div class="code-block" id="webhook-url">http://ihre-domain.com/calls/incoming</div>
                         <p class="hint">Methode: HTTP POST | Trigger: "Wenn ein Anruf eingeht"</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Config Page -->
+            <div id="page-config" class="page">
+
+                <!-- Status-Banner -->
+                <div id="config-status-bar" class="config-status-bar" style="display:none"></div>
+
+                <!-- Anthropic / KI -->
+                <div class="card" style="margin-bottom:1rem">
+                    <div class="card-header">
+                        <h2>🤖 KI-Assistent (Anthropic / Claude)</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>API-Key</label>
+                                <div style="display:flex;gap:8px">
+                                    <input type="password" id="cfg-anthropic-key" class="input" placeholder="sk-ant-...">
+                                    <button class="btn btn-secondary" onclick="toggleVisibility('cfg-anthropic-key')">👁</button>
+                                </div>
+                                <span class="hint" id="cfg-anthropic-key-preview"></span>
+                            </div>
+                            <div class="form-group">
+                                <label>Claude-Modell</label>
+                                <select id="cfg-claude-model" class="input">
+                                    <option value="">Wird geladen...</option>
+                                </select>
+                                <span class="hint">Bestimmt Qualität und Kosten der KI</span>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;margin-top:8px">
+                            <button class="btn btn-primary" onclick="saveConfig()">Speichern</button>
+                            <button class="btn btn-secondary" onclick="testConnection('anthropic')">Verbindung testen</button>
+                            <span id="test-anthropic-result" class="test-result"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Twilio -->
+                <div class="card" style="margin-bottom:1rem">
+                    <div class="card-header">
+                        <h2>📞 Twilio (Telefonie)</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Account SID</label>
+                                <input type="text" id="cfg-twilio-sid" class="input" placeholder="ACxxxxxxxxxxxxxxxx">
+                            </div>
+                            <div class="form-group">
+                                <label>Auth Token</label>
+                                <div style="display:flex;gap:8px">
+                                    <input type="password" id="cfg-twilio-token" class="input" placeholder="••••••••••••••">
+                                    <button class="btn btn-secondary" onclick="toggleVisibility('cfg-twilio-token')">👁</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Twilio-Telefonnummer</label>
+                                <input type="text" id="cfg-twilio-phone" class="input" placeholder="+4930...">
+                                <span class="hint">Die Nummer, die Kunden anrufen</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Server-URL (BASE_URL)</label>
+                                <input type="text" id="cfg-base-url" class="input" placeholder="https://ihre-domain.de">
+                                <span class="hint">Öffentlich erreichbar — Twilio sendet Webhooks hierhin</span>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;margin-top:8px">
+                            <button class="btn btn-primary" onclick="saveConfig()">Speichern</button>
+                            <button class="btn btn-secondary" onclick="testConnection('twilio')">Verbindung testen</button>
+                            <span id="test-twilio-result" class="test-result"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Webhook-Anleitung -->
+                <div class="card">
+                    <div class="card-header"><h2>📋 Twilio Webhook-Anleitung</h2></div>
+                    <div class="card-body">
+                        <p style="margin-bottom:8px">Tragen Sie in Ihrem <strong>Twilio-Dashboard</strong> folgende URL ein:</p>
+                        <p><strong>Phone Numbers → Ihre Nummer → "A call comes in"</strong></p>
+                        <div class="code-block" id="webhook-display">https://ihre-domain.de/calls/incoming</div>
+                        <p class="hint">Methode: HTTP POST</p>
+                        <p style="margin-top:12px">Für lokalen Test mit ngrok:</p>
+                        <div class="code-block">ngrok http 8000</div>
+                        <p class="hint">Die ngrok-URL dann oben als Server-URL eintragen und speichern</p>
                     </div>
                 </div>
             </div>

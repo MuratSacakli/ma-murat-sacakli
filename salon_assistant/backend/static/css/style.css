@@ -448,6 +448,27 @@ select.input { cursor: pointer; }
 .appointment-name { font-weight: 600; }
 .appointment-service { color: var(--text-light); font-size: 12px; }
 
+/* Config page */
+.config-status-bar {
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+    font-weight: 600;
+}
+.config-status-bar.ok  { background:#d4edda; color:#155724; }
+.config-status-bar.err { background:#f8d7da; color:#721c24; }
+
+.test-result {
+    display:inline-flex;
+    align-items:center;
+    font-size:13px;
+    font-weight:600;
+    padding: 4px 10px;
+    border-radius:6px;
+}
+.test-result.ok  { background:#d4edda; color:#155724; }
+.test-result.err { background:#f8d7da; color:#721c24; }
+
 @media (max-width: 1100px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }

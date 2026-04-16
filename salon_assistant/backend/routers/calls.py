@@ -13,6 +13,7 @@ from services.booking_service import (
     format_confirmation_message,
     format_conflict_message
 )
+from services.runtime_config import get_runtime_config
 from config import settings
 
 router = APIRouter(prefix="/calls", tags=["Telefonanrufe"])
@@ -128,8 +129,9 @@ async def handle_incoming_call(request: Request, db: Session = Depends(get_db)):
         db.add(session)
         db.commit()
 
+        cfg = get_runtime_config(db)
         greeting = get_greeting(salon.name, customer=customer, language=language)
-        action_url = f"{settings.BASE_URL}/calls/respond/{call_sid}"
+        action_url = f"{cfg['base_url']}/calls/respond/{call_sid}"
         twiml = make_twiml_gather(greeting, action_url, language)
         return Response(content=twiml, media_type="application/xml")
 
@@ -161,6 +163,7 @@ async def handle_speech_response(call_sid: str, request: Request, db: Session = 
         language = session.detected_language or "de"
 
         conversation_history.append({"role": "user", "content": speech_result})
+        cfg = get_runtime_config(db)
 
         ai_response, booking_complete = get_ai_response(
             conversation_history=conversation_history,
@@ -168,11 +171,12 @@ async def handle_speech_response(call_sid: str, request: Request, db: Session = 
             hairdressers=hairdressers,
             services=services,
             booking_data=booking_data,
-            customer=customer
+            customer=customer,
+            runtime_cfg=cfg
         )
 
         conversation_history.append({"role": "assistant", "content": ai_response})
-        action_url = f"{settings.BASE_URL}/calls/respond/{call_sid}"
+        action_url = f"{cfg['base_url']}/calls/respond/{call_sid}"
 
         if booking_complete:
             detected_lang = booking_complete.get("detected_language", language)
