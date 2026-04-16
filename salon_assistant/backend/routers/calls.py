@@ -14,7 +14,31 @@ from services.booking_service import (
     format_conflict_message
 )
 from services.runtime_config import get_runtime_config
+from models import BillingConfig
 from config import settings
+
+
+def _finalize_billing(session: CallSession, db: Session):
+    """Berechnet Dauer und Kosten beim Beenden eines Gesprächs."""
+    if session.created_at and session.ended_at:
+        session.duration_seconds = int((session.ended_at - session.created_at).total_seconds())
+    elif session.created_at:
+        session.duration_seconds = int((datetime.utcnow() - session.created_at).total_seconds())
+
+    from math import ceil
+    cfg = db.query(BillingConfig).filter(BillingConfig.id == 1).first()
+    min_bill = cfg.min_billing_minutes if cfg else 1.0
+    price_min = cfg.price_per_minute_eur if cfg else 0.10
+    price_tok = cfg.price_per_1k_tokens_eur if cfg else 0.003
+
+    raw_minutes = (session.duration_seconds or 0) / 60
+    billed = max(raw_minutes, min_bill)
+    session.billed_minutes = round(billed, 3)
+
+    tokens_total = (session.tokens_input or 0) + (session.tokens_output or 0)
+    session.ai_cost_eur = round(
+        billed * price_min + (tokens_total / 1000) * price_tok, 4
+    )
 
 router = APIRouter(prefix="/calls", tags=["Telefonanrufe"])
 
@@ -165,7 +189,7 @@ async def handle_speech_response(call_sid: str, request: Request, db: Session = 
         conversation_history.append({"role": "user", "content": speech_result})
         cfg = get_runtime_config(db)
 
-        ai_response, booking_complete = get_ai_response(
+        ai_response, booking_complete, usage = get_ai_response(
             conversation_history=conversation_history,
             salon=salon,
             hairdressers=hairdressers,
@@ -174,6 +198,10 @@ async def handle_speech_response(call_sid: str, request: Request, db: Session = 
             customer=customer,
             runtime_cfg=cfg
         )
+
+        # Token-Tracking kumulieren
+        session.tokens_input = (session.tokens_input or 0) + usage["tokens_input"]
+        session.tokens_output = (session.tokens_output or 0) + usage["tokens_output"]
 
         conversation_history.append({"role": "assistant", "content": ai_response})
         action_url = f"{cfg['base_url']}/calls/respond/{call_sid}"
@@ -186,7 +214,6 @@ async def handle_speech_response(call_sid: str, request: Request, db: Session = 
             appointment = create_appointment_from_booking(db, salon.id, booking_complete)
             if appointment:
                 upsert_customer(db, salon.id, booking_complete, detected_lang)
-
                 hairdresser = next((h for h in hairdressers if h.id == appointment.hairdresser_id), None)
                 hairdresser_name = hairdresser.name if hairdresser else booking_complete.get("hairdresser_name", "")
                 confirmation = format_confirmation_message(appointment, hairdresser_name, detected_lang)
@@ -194,6 +221,7 @@ async def handle_speech_response(call_sid: str, request: Request, db: Session = 
                 session.status = "completed"
                 session.ended_at = datetime.utcnow()
                 session.conversation_history = json.dumps(conversation_history)
+                _finalize_billing(session, db)
                 db.commit()
 
                 twiml = make_twiml_hangup(confirmation, detected_lang)

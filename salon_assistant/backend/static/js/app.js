@@ -50,6 +50,10 @@ function showApp() {
         info.textContent = `👤 ${currentUser.full_name || currentUser.username}` +
             (currentUser.is_superadmin ? ' (Admin)' : '');
     }
+    if (currentUser?.is_superadmin) {
+        const navUsers = document.getElementById('nav-users');
+        if (navUsers) navUsers.style.display = '';
+    }
     loadSalons();
 }
 
@@ -85,6 +89,8 @@ function switchPage(page) {
     document.getElementById(`page-${page}`)?.classList.add('active');
     document.getElementById('page-title').textContent = {
         config: 'System-Konfiguration',
+        billing: 'Abrechnung',
+        users: 'Benutzerverwaltung',
         dashboard: 'Dashboard',
         appointments: 'Termine',
         hairdressers: 'Friseure',
@@ -101,6 +107,8 @@ function switchPage(page) {
     else if (page === 'salon') loadSalonSettings();
     else if (page === 'customers') loadCustomers();
     else if (page === 'config') loadConfig();
+    else if (page === 'billing') loadBilling();
+    else if (page === 'users') loadUsers();
     else if (page === 'calls') loadCallLog();
 }
 
@@ -717,6 +725,154 @@ function showConversation(historyJson) {
             </div>`).join('');
     }
     openModal('modal-conversation');
+}
+
+// ─── Billing ──────────────────────────────────────────────────────────────────
+async function loadBilling() {
+    if (!currentSalonId) return;
+    const month = document.getElementById('billing-month')?.value || '';
+    const monthParam = month ? `?month=${month}` : '';
+
+    const isAdmin = currentUser?.is_superadmin;
+    document.getElementById('billing-config-section').style.display = isAdmin ? '' : 'none';
+    document.getElementById('billing-overview-section').style.display = isAdmin ? '' : 'none';
+
+    try {
+        if (isAdmin) {
+            const cfg = await apiFetch('/api/billing/config');
+            document.getElementById('bill-price-min').value = cfg.price_per_minute_eur;
+            document.getElementById('bill-price-tok').value = cfg.price_per_1k_tokens_eur;
+            document.getElementById('bill-min-min').value = cfg.min_billing_minutes;
+
+            const overview = await apiFetch(`/api/billing/overview${monthParam}`);
+            const tbody = document.getElementById('billing-overview-tbody');
+            if (!overview.salons.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Keine Daten</td></tr>';
+            } else {
+                tbody.innerHTML = overview.salons.map(r => `<tr>
+                    <td><strong>${escHtml(r.salon_name)}</strong></td>
+                    <td>${r.calls}</td>
+                    <td>${r.minutes.toFixed(2)}</td>
+                    <td>${r.tokens.toLocaleString('de-DE')}</td>
+                    <td><strong>${r.cost_eur.toFixed(4)} €</strong></td>
+                </tr>`).join('');
+            }
+            document.getElementById('billing-grand-total').textContent =
+                `Gesamt: ${overview.grand_total_eur.toFixed(4)} €`;
+        }
+
+        const usage = await apiFetch(`/api/billing/usage/${currentSalonId}${monthParam}`);
+        document.getElementById('billing-stats').innerHTML = `
+            <div class="stat-card"><div class="stat-icon">📞</div><div class="stat-info"><div class="stat-value">${usage.total_calls}</div><div class="stat-label">Anrufe gesamt</div></div></div>
+            <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-info"><div class="stat-value">${usage.completed_bookings}</div><div class="stat-label">Buchungen</div></div></div>
+            <div class="stat-card"><div class="stat-icon">⏱️</div><div class="stat-info"><div class="stat-value">${usage.total_minutes.toFixed(1)}</div><div class="stat-label">Minuten</div></div></div>
+            ${isAdmin ? `<div class="stat-card"><div class="stat-icon">🔢</div><div class="stat-info"><div class="stat-value">${usage.total_tokens.toLocaleString('de-DE')}</div><div class="stat-label">Tokens gesamt</div></div></div>` : ''}
+            <div class="stat-card"><div class="stat-icon">💶</div><div class="stat-info"><div class="stat-value">${usage.total_cost_eur.toFixed(4)} €</div><div class="stat-label">Kosten</div></div></div>`;
+
+        const calls = await apiFetch(`/api/billing/calls/${currentSalonId}${monthParam}`);
+        const tbody = document.getElementById('billing-calls-tbody');
+        if (!calls.length) {
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Keine Anrufe gefunden</td></tr>';
+        } else {
+            tbody.innerHTML = calls.map(c => {
+                const dt = new Date(c.date).toLocaleString('de-DE');
+                const dur = c.duration_sec ? `${Math.floor(c.duration_sec/60)}m ${c.duration_sec%60}s` : '—';
+                return `<tr>
+                    <td>${dt}</td>
+                    <td>${escHtml(c.caller || 'Unbekannt')}</td>
+                    <td><span class="badge badge-${c.status === 'completed' ? 'confirmed' : 'pending'}">${c.status === 'completed' ? 'Gebucht' : c.status}</span></td>
+                    <td>${dur}</td>
+                    <td>${c.billed_min.toFixed(2)}</td>
+                    <td>${c.tokens_in.toLocaleString('de-DE')}</td>
+                    <td>${c.tokens_out.toLocaleString('de-DE')}</td>
+                    <td><strong>${c.cost_eur.toFixed(4)} €</strong></td>
+                </tr>`;
+            }).join('');
+        }
+    } catch(e) {
+        showToast('Abrechnungsdaten konnten nicht geladen werden', 'error');
+    }
+}
+
+async function saveBillingConfig() {
+    const payload = {
+        price_per_minute_eur: parseFloat(document.getElementById('bill-price-min').value),
+        price_per_1k_tokens_eur: parseFloat(document.getElementById('bill-price-tok').value),
+        min_billing_minutes: parseFloat(document.getElementById('bill-min-min').value),
+    };
+    try {
+        await apiFetch('/api/billing/config', { method: 'PUT', body: JSON.stringify(payload) });
+        showToast('Preise gespeichert ✅');
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+async function loadUsers() {
+    if (!currentUser?.is_superadmin) return;
+    document.getElementById('nav-users').style.display = '';
+    try {
+        const [users, salons] = await Promise.all([
+            apiFetch('/auth/users'),
+            apiFetch('/api/salons/')
+        ]);
+        const salonMap = Object.fromEntries(salons.map(s => [s.id, s.name]));
+
+        const tbody = document.getElementById('users-tbody');
+        if (!users.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Keine Benutzer</td></tr>';
+        } else {
+            tbody.innerHTML = users.map(u => `<tr>
+                <td><strong>${escHtml(u.username)}</strong></td>
+                <td>${escHtml(u.full_name || '—')}</td>
+                <td>${u.salon_id ? escHtml(salonMap[u.salon_id] || `#${u.salon_id}`) : '<em>Super-Admin</em>'}</td>
+                <td>${u.is_superadmin ? '⭐ Super-Admin' : '👤 Salon-User'}</td>
+                <td>${u.username !== 'admin' ? `<button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id})">Löschen</button>` : ''}</td>
+            </tr>`).join('');
+        }
+
+        const sel = document.getElementById('user-salon-select');
+        if (sel) {
+            sel.innerHTML = '<option value="">— Super-Admin (kein Salon) —</option>' +
+                salons.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
+        }
+    } catch(e) {
+        showToast('Benutzerliste konnte nicht geladen werden', 'error');
+    }
+}
+
+async function createUser(e) {
+    e.preventDefault();
+    const form = e.target;
+    const data = Object.fromEntries(new FormData(form));
+    const payload = {
+        username: data.username,
+        password: data.password,
+        full_name: data.full_name || null,
+        salon_id: data.salon_id ? parseInt(data.salon_id) : null,
+        is_superadmin: data.is_superadmin === 'on',
+    };
+    try {
+        await apiFetch('/auth/users', { method: 'POST', body: JSON.stringify(payload) });
+        showToast('Benutzer angelegt ✅');
+        closeModal('modal-create-user');
+        form.reset();
+        loadUsers();
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function deleteUser(id) {
+    if (!confirm('Benutzer wirklich löschen?')) return;
+    try {
+        await apiFetch(`/auth/users/${id}`, { method: 'DELETE' });
+        showToast('Benutzer gelöscht');
+        loadUsers();
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

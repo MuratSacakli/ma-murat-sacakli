@@ -56,6 +56,12 @@
                 <a href="#" class="nav-item" data-page="config">
                     <span class="nav-icon">⚙️</span> System-Config
                 </a>
+                <a href="#" class="nav-item" data-page="billing">
+                    <span class="nav-icon">💶</span> Abrechnung
+                </a>
+                <a href="#" class="nav-item" data-page="users" id="nav-users" style="display:none">
+                    <span class="nav-icon">👤</span> Benutzer
+                </a>
                 <a href="#" class="nav-item" data-page="customers">
                     <span class="nav-icon">👥</span> Kunden
                 </a>
@@ -343,6 +349,86 @@
                 </div>
             </div>
 
+            <!-- Billing Page -->
+            <div id="page-billing" class="page">
+                <div id="billing-month-bar" style="display:flex;gap:10px;margin-bottom:20px;align-items:center">
+                    <label style="font-weight:600">Monat:</label>
+                    <input type="month" id="billing-month" class="input" style="max-width:160px" onchange="loadBilling()">
+                    <button class="btn btn-secondary" onclick="document.getElementById('billing-month').value='';loadBilling()">Alle</button>
+                </div>
+
+                <!-- Super-Admin: Preise konfigurieren -->
+                <div id="billing-config-section" class="card" style="margin-bottom:1rem;display:none">
+                    <div class="card-header"><h2>💶 Preiskonfiguration</h2></div>
+                    <div class="card-body">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Preis pro Minute (€)</label>
+                                <input type="number" id="bill-price-min" class="input" step="0.001" min="0">
+                                <span class="hint">Wird dem Salon pro Gesprächsminute berechnet</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Preis pro 1.000 Tokens (€)</label>
+                                <input type="number" id="bill-price-tok" class="input" step="0.0001" min="0">
+                                <span class="hint">KI-Kosten (Claude API)</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Mindestabrechnung (Minuten)</label>
+                                <input type="number" id="bill-min-min" class="input" step="0.5" min="0">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" onclick="saveBillingConfig()">Preise speichern</button>
+                    </div>
+                </div>
+
+                <!-- Super-Admin: Übersicht aller Salons -->
+                <div id="billing-overview-section" class="card" style="margin-bottom:1rem;display:none">
+                    <div class="card-header"><h2>📊 Alle Salons — Übersicht</h2></div>
+                    <div class="card-body">
+                        <table class="table">
+                            <thead>
+                                <tr><th>Salon</th><th>Anrufe</th><th>Minuten</th><th>Tokens</th><th>Kosten</th></tr>
+                            </thead>
+                            <tbody id="billing-overview-tbody"></tbody>
+                        </table>
+                        <div id="billing-grand-total" style="text-align:right;font-weight:700;font-size:18px;padding:12px 0;border-top:2px solid var(--border);margin-top:8px"></div>
+                    </div>
+                </div>
+
+                <!-- Salon-Ansicht: eigene Kosten -->
+                <div class="stats-grid" id="billing-stats" style="margin-bottom:1rem"></div>
+
+                <!-- Einzelne Anrufe -->
+                <div class="card">
+                    <div class="card-header"><h2>📞 Anrufe im Detail</h2></div>
+                    <div class="card-body">
+                        <table class="table">
+                            <thead>
+                                <tr><th>Datum</th><th>Anrufer</th><th>Status</th><th>Dauer</th><th>Min.</th><th>Tokens rein</th><th>Tokens raus</th><th>Kosten</th></tr>
+                            </thead>
+                            <tbody id="billing-calls-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Page (nur Super-Admin) -->
+            <div id="page-users" class="page">
+                <div class="page-actions">
+                    <button class="btn btn-primary" onclick="openModal('modal-create-user')">+ Neuer Benutzer</button>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <table class="table">
+                            <thead>
+                                <tr><th>Benutzername</th><th>Name</th><th>Salon</th><th>Rolle</th><th>Aktionen</th></tr>
+                            </thead>
+                            <tbody id="users-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <!-- Customers Page -->
             <div id="page-customers" class="page">
                 <div class="page-actions">
@@ -395,6 +481,42 @@
     </div>
 
     <!-- Modals -->
+    <div id="modal-create-user" class="modal-overlay" onclick="closeModalOnOverlay(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Neuen Benutzer anlegen</h3>
+                <button class="modal-close" onclick="closeModal('modal-create-user')">✕</button>
+            </div>
+            <form onsubmit="createUser(event)">
+                <div class="form-group">
+                    <label>Benutzername *</label>
+                    <input type="text" name="username" class="input" required>
+                </div>
+                <div class="form-group" style="margin-top:10px">
+                    <label>Passwort *</label>
+                    <input type="password" name="password" class="input" required>
+                </div>
+                <div class="form-group" style="margin-top:10px">
+                    <label>Vollständiger Name</label>
+                    <input type="text" name="full_name" class="input">
+                </div>
+                <div class="form-group" style="margin-top:10px">
+                    <label>Salon zuweisen</label>
+                    <select name="salon_id" class="input" id="user-salon-select">
+                        <option value="">— Super-Admin (kein Salon) —</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-top:10px">
+                    <label><input type="checkbox" name="is_superadmin"> Super-Admin</label>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-user')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Anlegen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="modal-create-salon" class="modal-overlay" onclick="closeModalOnOverlay(event)">
         <div class="modal">
             <div class="modal-header">

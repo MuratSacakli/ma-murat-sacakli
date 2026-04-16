@@ -125,7 +125,8 @@ def get_ai_response(
     booking_data: dict,
     customer=None,
     runtime_cfg: dict = None
-) -> tuple[str, Optional[dict]]:
+) -> tuple[str, Optional[dict], dict]:
+    """Returns (speech_text, booking_complete, usage_stats)"""
     system_prompt = build_system_prompt(salon, hairdressers, services, booking_data, customer)
 
     if runtime_cfg:
@@ -147,8 +148,12 @@ def get_ai_response(
     full_response = response.content[0].text
     booking_complete = extract_booking_from_response(full_response)
     speech_text = clean_response_for_speech(full_response)
+    usage_stats = {
+        "tokens_input": response.usage.input_tokens,
+        "tokens_output": response.usage.output_tokens,
+    }
 
-    return speech_text, booking_complete
+    return speech_text, booking_complete, usage_stats
 
 
 def get_greeting(salon_name: str, customer=None, language: str = "de") -> str:

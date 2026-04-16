@@ -109,11 +109,29 @@ class CallSession(Base):
     conversation_history = Column(Text, default="[]")
     booking_data = Column(Text, default="{}")
     status = Column(String(50), default="active")
+    # Nutzungs-Tracking
+    duration_seconds = Column(Integer, default=0)
+    tokens_input = Column(Integer, default=0)
+    tokens_output = Column(Integer, default=0)
+    ai_cost_eur = Column(Float, default=0.0)     # berechnete KI-Kosten
+    billed_minutes = Column(Float, default=0.0)  # abgerechnete Minuten
     created_at = Column(DateTime, default=datetime.utcnow)
     ended_at = Column(DateTime)
 
     salon = relationship("Salon", back_populates="call_sessions")
     customer = relationship("Customer")
+
+
+class BillingConfig(Base):
+    """Preiskonfiguration — nur Super-Admin"""
+    __tablename__ = "billing_config"
+
+    id = Column(Integer, primary_key=True, default=1)
+    price_per_minute_eur = Column(Float, default=0.10)      # €/Minute Gesprächszeit
+    price_per_1k_tokens_eur = Column(Float, default=0.003)  # €/1000 Token
+    min_billing_minutes = Column(Float, default=1.0)        # Mindestabrechnung
+    currency = Column(String(10), default="EUR")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class User(Base):
