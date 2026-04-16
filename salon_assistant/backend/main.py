@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,10 +12,18 @@ from config import settings
 from database import init_db
 from routers import salons, hairdressers, services, appointments, calls
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.VERSION,
-    description="KI-gestützter Telefonassistent für Friseursalons"
+    description="KI-gestützter Telefonassistent für Friseursalons",
+    lifespan=lifespan
 )
 
 app.add_middleware(
@@ -34,11 +43,6 @@ app.include_router(calls.router)
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
-
-
-@app.on_event("startup")
-def on_startup():
-    init_db()
 
 
 @app.get("/")

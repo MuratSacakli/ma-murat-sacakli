@@ -51,8 +51,9 @@ def seed():
         db.add(Service(salon_id=salon.id, **sd))
 
     db.commit()
+    salon_name = salon.name
     db.close()
-    print(f"Demo-Daten erstellt: Salon '{salon.name}' mit {len(hairdressers_data)} Friseuren und {len(services_data)} Dienstleistungen.")
+    print(f"Demo-Daten erstellt: Salon '{salon_name}' mit {len(hairdressers_data)} Friseuren und {len(services_data)} Dienstleistungen.")
 
 
 if __name__ == "__main__":
