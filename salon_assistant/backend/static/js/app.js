@@ -1,5 +1,73 @@
 const API = '';
 let currentSalonId = null;
+let currentUser = null;
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+function getToken() { return localStorage.getItem('token'); }
+function setToken(t) { localStorage.setItem('token', t); }
+function clearToken() { localStorage.removeItem('token'); }
+
+async function doLogin(e) {
+    e.preventDefault();
+    const username = document.getElementById('login-username').value;
+    const password = document.getElementById('login-password').value;
+    const errEl = document.getElementById('login-error');
+    errEl.style.display = 'none';
+
+    try {
+        const body = new URLSearchParams({ username, password });
+        const res = await fetch('/auth/login', { method: 'POST', body });
+        if (!res.ok) {
+            const err = await res.json();
+            errEl.textContent = err.detail || 'Anmeldung fehlgeschlagen';
+            errEl.style.display = 'block';
+            return;
+        }
+        const data = await res.json();
+        setToken(data.access_token);
+        currentUser = data.user;
+        showApp();
+    } catch(e) {
+        errEl.textContent = 'Server nicht erreichbar';
+        errEl.style.display = 'block';
+    }
+}
+
+function doLogout() {
+    clearToken();
+    currentUser = null;
+    currentSalonId = null;
+    document.getElementById('main-app').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+}
+
+function showApp() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('main-app').style.display = 'flex';
+    // Benutzername in Sidebar anzeigen
+    const info = document.getElementById('sidebar-user');
+    if (info && currentUser) {
+        info.textContent = `👤 ${currentUser.full_name || currentUser.username}` +
+            (currentUser.is_superadmin ? ' (Admin)' : '');
+    }
+    loadSalons();
+}
+
+async function checkAuth() {
+    const token = getToken();
+    if (!token) return;
+    try {
+        const res = await fetch('/auth/me', { headers: { Authorization: `Bearer ${token}` } });
+        if (res.ok) {
+            currentUser = await res.json();
+            showApp();
+        } else {
+            clearToken();
+        }
+    } catch(e) {
+        clearToken();
+    }
+}
 
 // ─── Navigation ───────────────────────────────────────────────────────────────
 document.querySelectorAll('.nav-item').forEach(item => {
@@ -51,10 +119,16 @@ function closeModalOnOverlay(e) { if (e.target === e.currentTarget) e.currentTar
 
 // ─── API Helpers ──────────────────────────────────────────────────────────────
 async function apiFetch(path, options = {}) {
+    const token = getToken();
     const res = await fetch(API + path, {
-        headers: { 'Content-Type': 'application/json', ...options.headers },
+        headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...options.headers
+        },
         ...options
     });
+    if (res.status === 401) { doLogout(); return; }
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || `Fehler ${res.status}`);
@@ -660,4 +734,4 @@ const today = new Date().toISOString().split('T')[0];
 const filterDate = document.getElementById('filter-date');
 if (filterDate) filterDate.value = today;
 
-loadSalons();
+checkAuth();

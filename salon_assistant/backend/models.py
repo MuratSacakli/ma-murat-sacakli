@@ -26,6 +26,7 @@ class Salon(Base):
     appointments = relationship("Appointment", back_populates="salon", cascade="all, delete-orphan")
     call_sessions = relationship("CallSession", back_populates="salon", cascade="all, delete-orphan")
     customers = relationship("Customer", back_populates="salon", cascade="all, delete-orphan")
+    users = relationship("User", back_populates="salon", cascade="all, delete-orphan")
 
 
 class Hairdresser(Base):
@@ -113,6 +114,21 @@ class CallSession(Base):
 
     salon = relationship("Salon", back_populates="call_sessions")
     customer = relationship("Customer")
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    salon_id = Column(Integer, ForeignKey("salons.id"), nullable=True)  # None = Super-Admin
+    username = Column(String(100), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(200), nullable=False)
+    full_name = Column(String(200))
+    is_superadmin = Column(Boolean, default=False)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    salon = relationship("Salon", back_populates="users")
 
 
 class SystemSettings(Base):

@@ -7,7 +7,28 @@
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <div class="app">
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-box">
+            <div class="login-logo">✂️ SalonAssist</div>
+            <h2 class="login-title">Anmelden</h2>
+            <form onsubmit="doLogin(event)">
+                <div class="form-group">
+                    <label>Benutzername</label>
+                    <input type="text" id="login-username" class="input" required autocomplete="username">
+                </div>
+                <div class="form-group" style="margin-top:12px">
+                    <label>Passwort</label>
+                    <input type="password" id="login-password" class="input" required autocomplete="current-password">
+                </div>
+                <div id="login-error" class="login-error" style="display:none"></div>
+                <button type="submit" class="btn btn-primary" style="width:100%;margin-top:16px">Anmelden</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="app" id="main-app" style="display:none">
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
@@ -42,6 +63,10 @@
                     <span class="nav-icon">📞</span> Anruf-Protokoll
                 </a>
             </nav>
+            <div class="sidebar-footer">
+                <div class="user-info" id="sidebar-user"></div>
+                <button class="btn btn-secondary btn-sm" onclick="doLogout()" style="width:100%;margin-top:8px">Abmelden</button>
+            </div>
         </aside>
 
         <!-- Main Content -->

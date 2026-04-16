@@ -9,13 +9,35 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from config import settings
-from database import init_db
+from database import init_db, SessionLocal
 from routers import salons, hairdressers, services, appointments, calls, customers, system_settings
+from routers import auth_router
+
+
+def create_superadmin_if_missing():
+    from models import User
+    from auth import hash_password
+    db = SessionLocal()
+    try:
+        if not db.query(User).filter(User.username == "admin").first():
+            admin = User(
+                username="admin",
+                hashed_password=hash_password("admin123"),
+                full_name="Super Admin",
+                is_superadmin=True,
+                salon_id=None
+            )
+            db.add(admin)
+            db.commit()
+            print("✅ Super-Admin angelegt: admin / admin123 — Bitte Passwort sofort ändern!")
+    finally:
+        db.close()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    create_superadmin_if_missing()
     yield
 
 
@@ -34,6 +56,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router.router)
 app.include_router(salons.router)
 app.include_router(hairdressers.router)
 app.include_router(services.router)

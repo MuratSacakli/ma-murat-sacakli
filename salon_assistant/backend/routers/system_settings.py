@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
@@ -6,6 +6,8 @@ from datetime import datetime
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database import get_db
+from auth import get_current_user
+from models import User
 from models import SystemSettings
 
 router = APIRouter(prefix="/api/settings", tags=["Systemeinstellungen"])
@@ -57,7 +59,7 @@ def _mask(value: str) -> str:
 
 
 @router.get("/", response_model=SettingsResponse)
-def get_settings(db: Session = Depends(get_db)):
+def get_settings(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     s = _get_or_create(db)
     from config import settings as env_settings
     return SettingsResponse(
@@ -73,7 +75,9 @@ def get_settings(db: Session = Depends(get_db)):
 
 
 @router.put("/")
-def update_settings(update: SettingsUpdate, db: Session = Depends(get_db)):
+def update_settings(update: SettingsUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not current_user.is_superadmin:
+        raise HTTPException(status_code=403, detail="Nur Super-Admins dürfen Systemeinstellungen ändern")
     s = _get_or_create(db)
     for field, value in update.model_dump(exclude_none=True).items():
         if value != "":
@@ -89,7 +93,7 @@ def list_models():
 
 
 @router.post("/test-connection")
-def test_connection(db: Session = Depends(get_db)):
+def test_connection(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     from services.runtime_config import get_runtime_config
     cfg = get_runtime_config(db)
     results = {}
