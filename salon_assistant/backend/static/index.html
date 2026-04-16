@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salon Buchungsassistent</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-icon">✂️</span>
+                    <span class="logo-text">SalonAssist</span>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-page="dashboard">
+                    <span class="nav-icon">📊</span> Dashboard
+                </a>
+                <a href="#" class="nav-item" data-page="appointments">
+                    <span class="nav-icon">📅</span> Termine
+                </a>
+                <a href="#" class="nav-item" data-page="hairdressers">
+                    <span class="nav-icon">💇</span> Friseure
+                </a>
+                <a href="#" class="nav-item" data-page="services">
+                    <span class="nav-icon">💼</span> Dienstleistungen
+                </a>
+                <a href="#" class="nav-item" data-page="salon">
+                    <span class="nav-icon">🏪</span> Salon-Einstellungen
+                </a>
+                <a href="#" class="nav-item" data-page="calls">
+                    <span class="nav-icon">📞</span> Anruf-Protokoll
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <h1 class="page-title" id="page-title">Dashboard</h1>
+                <div class="salon-selector">
+                    <select id="salon-select">
+                        <option value="">Salon laden...</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="openModal('modal-create-salon')">+ Neuer Salon</button>
+                </div>
+            </header>
+
+            <!-- Dashboard Page -->
+            <div id="page-dashboard" class="page active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📅</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="stat-today">0</div>
+                            <div class="stat-label">Termine heute</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📆</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="stat-week">0</div>
+                            <div class="stat-label">Termine diese Woche</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">💇</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="stat-hairdressers">0</div>
+                            <div class="stat-label">Aktive Friseure</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📞</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="stat-calls">0</div>
+                            <div class="stat-label">Anrufe heute</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Heutige Termine</h2>
+                        </div>
+                        <div class="card-body" id="today-appointments">
+                            <p class="empty-state">Keine Termine für heute</p>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Letzte Anrufe</h2>
+                        </div>
+                        <div class="card-body" id="recent-calls">
+                            <p class="empty-state">Keine Anrufe</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Appointments Page -->
+            <div id="page-appointments" class="page">
+                <div class="page-actions">
+                    <input type="date" id="filter-date" class="input" onchange="loadAppointments()">
+                    <select id="filter-hairdresser" class="input" onchange="loadAppointments()">
+                        <option value="">Alle Friseure</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="openModal('modal-create-appointment')">+ Neuer Termin</button>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <table class="table" id="appointments-table">
+                            <thead>
+                                <tr>
+                                    <th>Datum & Uhrzeit</th>
+                                    <th>Kunde</th>
+                                    <th>Friseur</th>
+                                    <th>Dienstleistungen</th>
+                                    <th>Preis</th>
+                                    <th>Status</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="appointments-tbody">
+                                <tr><td colspan="7" class="empty-state">Termine werden geladen...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hairdressers Page -->
+            <div id="page-hairdressers" class="page">
+                <div class="page-actions">
+                    <button class="btn btn-primary" onclick="openModal('modal-create-hairdresser')">+ Neuer Friseur</button>
+                </div>
+                <div class="card-grid" id="hairdressers-grid">
+                    <p class="empty-state">Friseure werden geladen...</p>
+                </div>
+            </div>
+
+            <!-- Services Page -->
+            <div id="page-services" class="page">
+                <div class="page-actions">
+                    <button class="btn btn-primary" onclick="openModal('modal-create-service')">+ Neue Dienstleistung</button>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Dienstleistung</th>
+                                    <th>Beschreibung</th>
+                                    <th>Dauer</th>
+                                    <th>Preis</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="services-tbody">
+                                <tr><td colspan="5" class="empty-state">Dienstleistungen werden geladen...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Salon Settings Page -->
+            <div id="page-salon" class="page">
+                <div class="card">
+                    <div class="card-header"><h2>Salon-Einstellungen</h2></div>
+                    <div class="card-body">
+                        <form id="salon-form" onsubmit="saveSalon(event)">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Salon-Name *</label>
+                                    <input type="text" id="salon-name" class="input" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Telefon *</label>
+                                    <input type="text" id="salon-phone" class="input" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>E-Mail</label>
+                                    <input type="email" id="salon-email" class="input">
+                                </div>
+                                <div class="form-group">
+                                    <label>Adresse</label>
+                                    <input type="text" id="salon-address" class="input">
+                                </div>
+                                <div class="form-group">
+                                    <label>Twilio-Telefonnummer</label>
+                                    <input type="text" id="salon-twilio" class="input" placeholder="+4930...">
+                                </div>
+                                <div class="form-group">
+                                    <label>Öffnungszeit</label>
+                                    <input type="time" id="salon-opening" class="input">
+                                </div>
+                                <div class="form-group">
+                                    <label>Schließzeit</label>
+                                    <input type="time" id="salon-closing" class="input">
+                                </div>
+                                <div class="form-group">
+                                    <label>Slot-Dauer (Minuten)</label>
+                                    <input type="number" id="salon-slot-duration" class="input" min="5" max="60">
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Speichern</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="card" style="margin-top: 1rem;">
+                    <div class="card-header"><h2>Webhook-Konfiguration</h2></div>
+                    <div class="card-body">
+                        <p>Konfigurieren Sie in Ihrem Twilio-Dashboard folgenden Webhook:</p>
+                        <div class="code-block" id="webhook-url">http://ihre-domain.com/calls/incoming</div>
+                        <p class="hint">Methode: HTTP POST | Trigger: "Wenn ein Anruf eingeht"</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Call Log Page -->
+            <div id="page-calls" class="page">
+                <div class="card">
+                    <div class="card-body">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Datum & Uhrzeit</th>
+                                    <th>Anrufer</th>
+                                    <th>Status</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="calls-tbody">
+                                <tr><td colspan="4" class="empty-state">Anruf-Protokoll wird geladen...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-create-salon" class="modal-overlay" onclick="closeModalOnOverlay(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Neuen Salon erstellen</h3>
+                <button class="modal-close" onclick="closeModal('modal-create-salon')">✕</button>
+            </div>
+            <form onsubmit="createSalon(event)">
+                <div class="form-group">
+                    <label>Salon-Name *</label>
+                    <input type="text" name="name" class="input" required>
+                </div>
+                <div class="form-group">
+                    <label>Telefon *</label>
+                    <input type="text" name="phone" class="input" required>
+                </div>
+                <div class="form-group">
+                    <label>E-Mail</label>
+                    <input type="email" name="email" class="input">
+                </div>
+                <div class="form-group">
+                    <label>Adresse</label>
+                    <input type="text" name="address" class="input">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-salon')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Erstellen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-create-hairdresser" class="modal-overlay" onclick="closeModalOnOverlay(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Neuen Friseur hinzufügen</h3>
+                <button class="modal-close" onclick="closeModal('modal-create-hairdresser')">✕</button>
+            </div>
+            <form onsubmit="createHairdresser(event)">
+                <div class="form-group">
+                    <label>Name *</label>
+                    <input type="text" name="name" class="input" required>
+                </div>
+                <div class="form-group">
+                    <label>Spezialisierung</label>
+                    <input type="text" name="specialization" class="input" placeholder="z.B. Colorierung, Herrenschnitte">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-hairdresser')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Hinzufügen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-create-service" class="modal-overlay" onclick="closeModalOnOverlay(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Neue Dienstleistung</h3>
+                <button class="modal-close" onclick="closeModal('modal-create-service')">✕</button>
+            </div>
+            <form onsubmit="createService(event)">
+                <div class="form-group">
+                    <label>Name *</label>
+                    <input type="text" name="name" class="input" required>
+                </div>
+                <div class="form-group">
+                    <label>Beschreibung</label>
+                    <input type="text" name="description" class="input">
+                </div>
+                <div class="form-group">
+                    <label>Dauer (Minuten) *</label>
+                    <input type="number" name="duration_minutes" class="input" required min="5">
+                </div>
+                <div class="form-group">
+                    <label>Preis (€) *</label>
+                    <input type="number" name="price" class="input" required min="0" step="0.01">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-service')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Hinzufügen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-create-appointment" class="modal-overlay" onclick="closeModalOnOverlay(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Neuen Termin erstellen</h3>
+                <button class="modal-close" onclick="closeModal('modal-create-appointment')">✕</button>
+            </div>
+            <form onsubmit="createAppointment(event)">
+                <div class="form-group">
+                    <label>Friseur *</label>
+                    <select name="hairdresser_id" class="input" required id="appointment-hairdresser-select"></select>
+                </div>
+                <div class="form-group">
+                    <label>Dienstleistungen *</label>
+                    <input type="text" name="services" class="input" required placeholder="z.B. Haarschnitt, Colorierung">
+                </div>
+                <div class="form-group">
+                    <label>Kundenname *</label>
+                    <input type="text" name="customer_name" class="input" required>
+                </div>
+                <div class="form-group">
+                    <label>Kundennummer *</label>
+                    <input type="tel" name="customer_phone" class="input" required>
+                </div>
+                <div class="form-group">
+                    <label>Datum & Uhrzeit (Start) *</label>
+                    <input type="datetime-local" name="start_time" class="input" required>
+                </div>
+                <div class="form-group">
+                    <label>Datum & Uhrzeit (Ende) *</label>
+                    <input type="datetime-local" name="end_time" class="input" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-appointment')">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Termin buchen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-conversation" class="modal-overlay" onclick="closeModalOnOverlay(event)">
+        <div class="modal modal-large">
+            <div class="modal-header">
+                <h3>Gesprächsprotokoll</h3>
+                <button class="modal-close" onclick="closeModal('modal-conversation')">✕</button>
+            </div>
+            <div id="conversation-content" class="conversation-log"></div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

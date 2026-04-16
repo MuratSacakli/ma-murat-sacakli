@@ -1,0 +1,464 @@
+const API = '';
+let currentSalonId = null;
+
+// ─── Navigation ───────────────────────────────────────────────────────────────
+document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', e => {
+        e.preventDefault();
+        const page = item.dataset.page;
+        switchPage(page);
+    });
+});
+
+function switchPage(page) {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(`page-${page}`)?.classList.add('active');
+    document.getElementById('page-title').textContent = {
+        dashboard: 'Dashboard',
+        appointments: 'Termine',
+        hairdressers: 'Friseure',
+        services: 'Dienstleistungen',
+        salon: 'Salon-Einstellungen',
+        calls: 'Anruf-Protokoll'
+    }[page] || page;
+
+    if (page === 'dashboard') loadDashboard();
+    else if (page === 'appointments') { loadAppointments(); loadHairdressersForFilter(); }
+    else if (page === 'hairdressers') loadHairdressers();
+    else if (page === 'services') loadServices();
+    else if (page === 'salon') loadSalonSettings();
+    else if (page === 'calls') loadCallLog();
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+function showToast(message, type = 'success') {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = `toast ${type} show`;
+    setTimeout(() => toast.classList.remove('show'), 3500);
+}
+
+// ─── Modals ───────────────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeModalOnOverlay(e) { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); }
+
+// ─── API Helpers ──────────────────────────────────────────────────────────────
+async function apiFetch(path, options = {}) {
+    const res = await fetch(API + path, {
+        headers: { 'Content-Type': 'application/json', ...options.headers },
+        ...options
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `Fehler ${res.status}`);
+    }
+    return res.json();
+}
+
+// ─── Salon Selector ───────────────────────────────────────────────────────────
+async function loadSalons() {
+    try {
+        const salons = await apiFetch('/api/salons/');
+        const select = document.getElementById('salon-select');
+        select.innerHTML = salons.length
+            ? salons.map(s => `<option value="${s.id}">${s.name}</option>`).join('')
+            : '<option value="">Kein Salon vorhanden</option>';
+
+        if (salons.length) {
+            currentSalonId = salons[0].id;
+            select.value = currentSalonId;
+        }
+        select.addEventListener('change', () => {
+            currentSalonId = parseInt(select.value);
+            switchPage(document.querySelector('.nav-item.active').dataset.page);
+        });
+
+        if (salons.length) loadDashboard();
+    } catch(e) {
+        showToast('Salons konnten nicht geladen werden', 'error');
+    }
+}
+
+async function createSalon(e) {
+    e.preventDefault();
+    const form = e.target;
+    const data = Object.fromEntries(new FormData(form));
+    try {
+        const salon = await apiFetch('/api/salons/', { method: 'POST', body: JSON.stringify(data) });
+        showToast(`Salon "${salon.name}" erstellt`);
+        closeModal('modal-create-salon');
+        form.reset();
+        await loadSalons();
+        currentSalonId = salon.id;
+        document.getElementById('salon-select').value = salon.id;
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+async function loadDashboard() {
+    if (!currentSalonId) return;
+    const today = new Date().toISOString().split('T')[0];
+    const weekEnd = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+
+    try {
+        const [todayAppts, weekAppts, hairdressers, calls] = await Promise.all([
+            apiFetch(`/api/appointments/?salon_id=${currentSalonId}&date_from=${today}T00:00:00&date_to=${today}T23:59:59`),
+            apiFetch(`/api/appointments/?salon_id=${currentSalonId}&date_from=${today}T00:00:00&date_to=${weekEnd}T23:59:59`),
+            apiFetch(`/api/salons/${currentSalonId}/hairdressers`),
+            apiFetch(`/calls/sessions?salon_id=${currentSalonId}`)
+        ]);
+
+        document.getElementById('stat-today').textContent = todayAppts.length;
+        document.getElementById('stat-week').textContent = weekAppts.length;
+        document.getElementById('stat-hairdressers').textContent = hairdressers.length;
+        const todayCalls = calls.filter(c => c.created_at?.startsWith(today));
+        document.getElementById('stat-calls').textContent = todayCalls.length;
+
+        const apptContainer = document.getElementById('today-appointments');
+        if (todayAppts.length === 0) {
+            apptContainer.innerHTML = '<p class="empty-state">Keine Termine für heute</p>';
+        } else {
+            apptContainer.innerHTML = todayAppts.map(a => {
+                const time = new Date(a.start_time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                const hd = hairdressers.find(h => h.id === a.hairdresser_id);
+                return `<div class="appointment-item">
+                    <div class="appointment-time">${time}</div>
+                    <div class="appointment-detail">
+                        <div class="appointment-name">${escHtml(a.customer_name)}</div>
+                        <div class="appointment-service">${escHtml(a.services)} ${hd ? '· ' + escHtml(hd.name) : ''}</div>
+                    </div>
+                    <span class="badge badge-${a.status}">${statusLabel(a.status)}</span>
+                </div>`;
+            }).join('');
+        }
+
+        const callsContainer = document.getElementById('recent-calls');
+        const recentCalls = calls.slice(0, 8);
+        if (recentCalls.length === 0) {
+            callsContainer.innerHTML = '<p class="empty-state">Keine Anrufe</p>';
+        } else {
+            callsContainer.innerHTML = recentCalls.map(c => {
+                const time = new Date(c.created_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                return `<div class="appointment-item">
+                    <div class="appointment-time" style="min-width:80px;font-size:12px">${time}</div>
+                    <div class="appointment-detail">
+                        <div class="appointment-name">${escHtml(c.caller_phone || 'Unbekannt')}</div>
+                    </div>
+                    <span class="badge badge-${c.status === 'completed' ? 'confirmed' : 'pending'}">${c.status === 'completed' ? 'Gebucht' : 'Aktiv'}</span>
+                </div>`;
+            }).join('');
+        }
+    } catch(e) {
+        showToast('Dashboard konnte nicht geladen werden', 'error');
+    }
+}
+
+// ─── Appointments ─────────────────────────────────────────────────────────────
+async function loadAppointments() {
+    if (!currentSalonId) return;
+    const dateFilter = document.getElementById('filter-date')?.value;
+    const hairdresserFilter = document.getElementById('filter-hairdresser')?.value;
+
+    let url = `/api/appointments/?salon_id=${currentSalonId}`;
+    if (dateFilter) {
+        url += `&date_from=${dateFilter}T00:00:00&date_to=${dateFilter}T23:59:59`;
+    }
+    if (hairdresserFilter) url += `&hairdresser_id=${hairdresserFilter}`;
+
+    try {
+        const [appointments, hairdressers] = await Promise.all([
+            apiFetch(url),
+            apiFetch(`/api/salons/${currentSalonId}/hairdressers`)
+        ]);
+        const hdMap = Object.fromEntries(hairdressers.map(h => [h.id, h.name]));
+
+        const tbody = document.getElementById('appointments-tbody');
+        if (appointments.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Keine Termine gefunden</td></tr>';
+            return;
+        }
+        tbody.innerHTML = appointments.map(a => {
+            const start = new Date(a.start_time);
+            const dateStr = start.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+            const timeStr = start.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            return `<tr>
+                <td><strong>${dateStr}</strong><br><span style="color:var(--text-light)">${timeStr} Uhr</span></td>
+                <td>${escHtml(a.customer_name)}<br><span style="color:var(--text-light);font-size:12px">${escHtml(a.customer_phone)}</span></td>
+                <td>${escHtml(hdMap[a.hairdresser_id] || '—')}</td>
+                <td>${escHtml(a.services)}</td>
+                <td>${a.total_price ? a.total_price.toFixed(2) + ' €' : '—'}</td>
+                <td><span class="badge badge-${a.status}">${statusLabel(a.status)}</span></td>
+                <td>
+                    ${a.status !== 'cancelled' ? `<button class="btn btn-sm btn-danger" onclick="cancelAppointment(${a.id})">Stornieren</button>` : ''}
+                </td>
+            </tr>`;
+        }).join('');
+    } catch(e) {
+        showToast('Termine konnten nicht geladen werden', 'error');
+    }
+}
+
+async function loadHairdressersForFilter() {
+    if (!currentSalonId) return;
+    const hairdressers = await apiFetch(`/api/salons/${currentSalonId}/hairdressers`).catch(() => []);
+    const select = document.getElementById('filter-hairdresser');
+    if (select) {
+        select.innerHTML = '<option value="">Alle Friseure</option>' +
+            hairdressers.map(h => `<option value="${h.id}">${escHtml(h.name)}</option>`).join('');
+    }
+    const apptSelect = document.getElementById('appointment-hairdresser-select');
+    if (apptSelect) {
+        apptSelect.innerHTML = hairdressers.map(h => `<option value="${h.id}">${escHtml(h.name)}</option>`).join('');
+    }
+}
+
+async function createAppointment(e) {
+    e.preventDefault();
+    if (!currentSalonId) return showToast('Bitte wählen Sie einen Salon', 'error');
+    const form = e.target;
+    const data = Object.fromEntries(new FormData(form));
+    const payload = {
+        salon_id: currentSalonId,
+        hairdresser_id: parseInt(data.hairdresser_id),
+        customer_name: data.customer_name,
+        customer_phone: data.customer_phone,
+        services: data.services,
+        start_time: data.start_time,
+        end_time: data.end_time
+    };
+    try {
+        await apiFetch('/api/appointments/', { method: 'POST', body: JSON.stringify(payload) });
+        showToast('Termin erfolgreich erstellt');
+        closeModal('modal-create-appointment');
+        form.reset();
+        loadAppointments();
+        loadDashboard();
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function cancelAppointment(id) {
+    if (!confirm('Termin wirklich stornieren?')) return;
+    try {
+        await apiFetch(`/api/appointments/${id}`, { method: 'DELETE' });
+        showToast('Termin storniert');
+        loadAppointments();
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+// ─── Hairdressers ─────────────────────────────────────────────────────────────
+async function loadHairdressers() {
+    if (!currentSalonId) return;
+    try {
+        const hairdressers = await apiFetch(`/api/salons/${currentSalonId}/hairdressers`);
+        const grid = document.getElementById('hairdressers-grid');
+        if (hairdressers.length === 0) {
+            grid.innerHTML = '<p class="empty-state">Noch keine Friseure angelegt</p>';
+            return;
+        }
+        grid.innerHTML = hairdressers.map(h => `
+            <div class="hairdresser-card">
+                <div class="hairdresser-avatar">${h.name.charAt(0)}</div>
+                <div class="hairdresser-name">${escHtml(h.name)}</div>
+                <div class="hairdresser-spec">${escHtml(h.specialization || 'Alle Dienstleistungen')}</div>
+                <button class="btn btn-sm btn-danger" onclick="deactivateHairdresser(${h.id})">Entfernen</button>
+            </div>`).join('');
+    } catch(e) {
+        showToast('Friseure konnten nicht geladen werden', 'error');
+    }
+}
+
+async function createHairdresser(e) {
+    e.preventDefault();
+    if (!currentSalonId) return showToast('Bitte wählen Sie einen Salon', 'error');
+    const form = e.target;
+    const data = Object.fromEntries(new FormData(form));
+    try {
+        await apiFetch('/api/hairdressers/', {
+            method: 'POST',
+            body: JSON.stringify({ ...data, salon_id: currentSalonId })
+        });
+        showToast('Friseur hinzugefügt');
+        closeModal('modal-create-hairdresser');
+        form.reset();
+        loadHairdressers();
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function deactivateHairdresser(id) {
+    if (!confirm('Friseur wirklich entfernen?')) return;
+    try {
+        await apiFetch(`/api/hairdressers/${id}`, { method: 'DELETE' });
+        showToast('Friseur entfernt');
+        loadHairdressers();
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+// ─── Services ─────────────────────────────────────────────────────────────────
+async function loadServices() {
+    if (!currentSalonId) return;
+    try {
+        const services = await apiFetch(`/api/salons/${currentSalonId}/services`);
+        const tbody = document.getElementById('services-tbody');
+        if (services.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Noch keine Dienstleistungen</td></tr>';
+            return;
+        }
+        tbody.innerHTML = services.map(s => `<tr>
+            <td><strong>${escHtml(s.name)}</strong></td>
+            <td>${escHtml(s.description || '—')}</td>
+            <td>${s.duration_minutes} Min.</td>
+            <td>${s.price.toFixed(2)} €</td>
+            <td><button class="btn btn-sm btn-danger" onclick="deleteService(${s.id})">Löschen</button></td>
+        </tr>`).join('');
+    } catch(e) {
+        showToast('Dienstleistungen konnten nicht geladen werden', 'error');
+    }
+}
+
+async function createService(e) {
+    e.preventDefault();
+    if (!currentSalonId) return showToast('Bitte wählen Sie einen Salon', 'error');
+    const form = e.target;
+    const data = Object.fromEntries(new FormData(form));
+    try {
+        await apiFetch('/api/services/', {
+            method: 'POST',
+            body: JSON.stringify({
+                ...data,
+                salon_id: currentSalonId,
+                duration_minutes: parseInt(data.duration_minutes),
+                price: parseFloat(data.price)
+            })
+        });
+        showToast('Dienstleistung hinzugefügt');
+        closeModal('modal-create-service');
+        form.reset();
+        loadServices();
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function deleteService(id) {
+    if (!confirm('Dienstleistung wirklich löschen?')) return;
+    try {
+        await apiFetch(`/api/services/${id}`, { method: 'DELETE' });
+        showToast('Dienstleistung gelöscht');
+        loadServices();
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+// ─── Salon Settings ───────────────────────────────────────────────────────────
+async function loadSalonSettings() {
+    if (!currentSalonId) return;
+    try {
+        const salon = await apiFetch(`/api/salons/${currentSalonId}`);
+        document.getElementById('salon-name').value = salon.name || '';
+        document.getElementById('salon-phone').value = salon.phone || '';
+        document.getElementById('salon-email').value = salon.email || '';
+        document.getElementById('salon-address').value = salon.address || '';
+        document.getElementById('salon-twilio').value = salon.twilio_phone_number || '';
+        document.getElementById('salon-opening').value = salon.opening_time || '09:00';
+        document.getElementById('salon-closing').value = salon.closing_time || '18:00';
+        document.getElementById('salon-slot-duration').value = salon.slot_duration_minutes || 30;
+        document.getElementById('webhook-url').textContent =
+            `${window.location.origin}/calls/incoming`;
+    } catch(e) {
+        showToast('Einstellungen konnten nicht geladen werden', 'error');
+    }
+}
+
+async function saveSalon(e) {
+    e.preventDefault();
+    if (!currentSalonId) return showToast('Kein Salon ausgewählt', 'error');
+    const payload = {
+        name: document.getElementById('salon-name').value,
+        phone: document.getElementById('salon-phone').value,
+        email: document.getElementById('salon-email').value,
+        address: document.getElementById('salon-address').value,
+        twilio_phone_number: document.getElementById('salon-twilio').value,
+        opening_time: document.getElementById('salon-opening').value,
+        closing_time: document.getElementById('salon-closing').value,
+        slot_duration_minutes: parseInt(document.getElementById('salon-slot-duration').value)
+    };
+    try {
+        await apiFetch(`/api/salons/${currentSalonId}`, { method: 'PUT', body: JSON.stringify(payload) });
+        showToast('Einstellungen gespeichert');
+        loadSalons();
+    } catch(e) {
+        showToast(e.message, 'error');
+    }
+}
+
+// ─── Call Log ─────────────────────────────────────────────────────────────────
+async function loadCallLog() {
+    if (!currentSalonId) return;
+    try {
+        const calls = await apiFetch(`/calls/sessions?salon_id=${currentSalonId}`);
+        const tbody = document.getElementById('calls-tbody');
+        if (calls.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Noch keine Anrufe</td></tr>';
+            return;
+        }
+        tbody.innerHTML = calls.map(c => {
+            const dt = new Date(c.created_at).toLocaleString('de-DE');
+            return `<tr>
+                <td>${dt}</td>
+                <td>${escHtml(c.caller_phone || 'Unbekannt')}</td>
+                <td><span class="badge badge-${c.status === 'completed' ? 'confirmed' : 'pending'}">${c.status === 'completed' ? 'Gebucht' : c.status === 'active' ? 'Aktiv' : 'Abgebrochen'}</span></td>
+                <td><button class="btn btn-sm btn-secondary" onclick="showConversation('${escHtml(c.conversation_history || '[]')}')">Gespräch</button></td>
+            </tr>`;
+        }).join('');
+    } catch(e) {
+        showToast('Anruf-Protokoll konnte nicht geladen werden', 'error');
+    }
+}
+
+function showConversation(historyJson) {
+    let history;
+    try { history = JSON.parse(historyJson); } catch { history = []; }
+
+    const content = document.getElementById('conversation-content');
+    if (!history.length) {
+        content.innerHTML = '<p class="empty-state">Kein Gesprächsprotokoll vorhanden</p>';
+    } else {
+        content.innerHTML = history.map(msg => `
+            <div class="message message-${msg.role}">
+                <div class="message-role">${msg.role === 'user' ? 'Kunde' : 'Assistent'}</div>
+                ${escHtml(msg.content)}
+            </div>`).join('');
+    }
+    openModal('modal-conversation');
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function statusLabel(status) {
+    return { confirmed: 'Bestätigt', cancelled: 'Storniert', pending: 'Ausstehend', completed: 'Abgeschlossen' }[status] || status;
+}
+
+function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+const today = new Date().toISOString().split('T')[0];
+const filterDate = document.getElementById('filter-date');
+if (filterDate) filterDate.value = today;
+
+loadSalons();
