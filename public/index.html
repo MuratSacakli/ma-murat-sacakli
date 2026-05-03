@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Düğün Davetiye — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&family=Dancing+Script:wght@600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary:    #7B1E2E;
+      --primary-lt: #a3304550;
+      --gold:       #C9A036;
+      --gold-lt:    #f0d97a;
+      --cream:      #FDF6E3;
+      --bg:         #f5f5f0;
+      --card:       #ffffff;
+      --text:       #2a1f17;
+      --muted:      #7a6a60;
+      --border:     #e8e0d5;
+      --yes:        #2d6a2d;
+      --no:         #b71c1c;
+      --maybe:      #e65100;
+      --pending:    #5c6bc0;
+      --radius:     12px;
+      --shadow:     0 2px 12px rgba(0,0,0,.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, var(--primary) 0%, #4a0e1a 100%);
+      color: white;
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 4px 20px rgba(123,30,46,.4);
+    }
+    header .logo { font-family: 'Dancing Script', cursive; font-size: 2rem; }
+    header .subtitle { font-size: .85rem; opacity: .75; margin-top: 2px; }
+
+    /* ── Layout ── */
+    main { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+
+    section { margin-bottom: 32px; }
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.25rem;
+      color: var(--primary);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+    }
+
+    /* ── Stats grid ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 16px;
+    }
+    .stat {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      text-align: center;
+      border-top: 4px solid var(--border);
+    }
+    .stat.total  { border-color: var(--gold); }
+    .stat.yes    { border-color: var(--yes); }
+    .stat.no     { border-color: var(--no); }
+    .stat.maybe  { border-color: var(--maybe); }
+    .stat.pending{ border-color: var(--pending); }
+    .stat.sent   { border-color: #607d8b; }
+
+    .stat .num {
+      font-size: 2.2rem;
+      font-weight: 700;
+      line-height: 1;
+      font-family: 'Playfair Display', serif;
+    }
+    .stat .label { font-size: .78rem; color: var(--muted); margin-top: 6px; text-transform: uppercase; letter-spacing: .05em; }
+    .stat.total  .num { color: var(--gold); }
+    .stat.yes    .num { color: var(--yes); }
+    .stat.no     .num { color: var(--no); }
+    .stat.maybe  .num { color: var(--maybe); }
+    .stat.pending .num{ color: var(--pending); }
+    .stat.sent   .num { color: #607d8b; }
+
+    /* ── WhatsApp status ── */
+    .wa-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .wa-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 99px;
+      font-size: .85rem;
+      font-weight: 600;
+    }
+    .wa-badge.ready       { background: #e8f5e9; color: #2d6a2d; }
+    .wa-badge.qr          { background: #fff8e1; color: #e65100; }
+    .wa-badge.connecting  { background: #e3f2fd; color: #1565c0; }
+    .wa-badge.disconnected{ background: #fce4ec; color: #b71c1c; }
+    .wa-badge .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50%      { opacity: .3; }
+    }
+    #qr-container img { max-width: 200px; border-radius: 8px; border: 3px solid var(--gold); margin-top: 16px; }
+
+    /* ── Form ── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field.full { grid-column: 1 / -1; }
+    label { font-size: .82rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    input, textarea {
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: .95rem;
+      font-family: inherit;
+      color: var(--text);
+      transition: border-color .2s;
+      background: #fdfcfb;
+    }
+    input:focus, textarea:focus { outline: none; border-color: var(--primary); }
+    textarea { resize: vertical; min-height: 120px; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all .2s;
+      font-family: inherit;
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: #5a1520; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(123,30,46,.3); }
+    .btn-gold { background: var(--gold); color: white; }
+    .btn-gold:hover { background: #a8832a; transform: translateY(-1px); }
+    .btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--text); }
+    .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-sm { padding: 6px 12px; font-size: .8rem; }
+    .btn-icon { padding: 6px 10px; font-size: 1rem; }
+    .btn-green  { background: var(--yes);   color: white; }
+    .btn-red    { background: var(--no);    color: white; }
+    .btn-chat   { background: #25D366;      color: white; }
+    .btn-chat:hover { background: #1ebe57; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; transform: none !important; }
+
+    /* ── Guest table ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      font-size: .9rem;
+    }
+    th { font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; white-space: nowrap; }
+    tr:hover td { background: #fdf9f4; }
+    tr:last-child td { border-bottom: none; }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 99px;
+      font-size: .75rem;
+      font-weight: 600;
+    }
+    .badge-yes     { background: #e8f5e9; color: var(--yes); }
+    .badge-no      { background: #fce4ec; color: var(--no); }
+    .badge-maybe   { background: #fff3e0; color: var(--maybe); }
+    .badge-pending { background: #e8eaf6; color: var(--pending); }
+    .badge-sent    { background: #e0f2f1; color: #00695c; }
+    .badge-unsent  { background: #f5f5f5; color: #9e9e9e; }
+
+    /* ── Add guest row ── */
+    .add-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+    .add-row input { flex: 1; min-width: 160px; }
+
+    /* ── Actions bar ── */
+    .actions-bar { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 32px; right: 32px;
+      background: #333;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: .9rem;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all .3s;
+      z-index: 9999;
+      max-width: 320px;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.success { background: var(--yes); }
+    #toast.error   { background: var(--no); }
+
+    /* ── Loading spinner ── */
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Link preview ── */
+    .invite-link-cell {
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: .78rem;
+      color: var(--muted);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--muted);
+    }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">💍 Düğün Davetiye</div>
+    <div class="subtitle">Hochzeits-Einladungs-Manager · WhatsApp</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- Stats -->
+  <section>
+    <h2 class="section-title">📊 Übersicht</h2>
+    <div class="stats">
+      <div class="stat total">  <div class="num" id="s-total">—</div>  <div class="label">Gesamt</div></div>
+      <div class="stat yes">    <div class="num" id="s-yes">—</div>    <div class="label">✅ Zusage</div></div>
+      <div class="stat no">     <div class="num" id="s-no">—</div>     <div class="label">❌ Absage</div></div>
+      <div class="stat maybe">  <div class="num" id="s-maybe">—</div>  <div class="label">🤔 Vielleicht</div></div>
+      <div class="stat pending"><div class="num" id="s-pending">—</div><div class="label">⏳ Ausstehend</div></div>
+      <div class="stat sent">   <div class="num" id="s-sent">—</div>   <div class="label">📨 Versendet</div></div>
+    </div>
+  </section>
+
+  <!-- WhatsApp Connection -->
+  <section>
+    <h2 class="section-title">📱 WhatsApp-Verbindung</h2>
+    <div class="card">
+      <div class="wa-bar">
+        <div id="wa-badge" class="wa-badge disconnected"><span class="dot"></span> Nicht verbunden</div>
+        <button class="btn btn-outline btn-sm" onclick="initWA()">Verbinden / QR-Code anzeigen</button>
+        <button class="btn btn-outline btn-sm" onclick="loadWAStatus()">🔄 Status prüfen</button>
+      </div>
+      <div id="qr-container" style="display:none">
+        <p style="margin-top:12px; font-size:.9rem; color:var(--muted)">
+          Scanne diesen QR-Code mit dem dedizierten WhatsApp-Konto:
+        </p>
+        <img id="qr-img" src="" alt="QR Code" />
+      </div>
+    </div>
+  </section>
+
+  <!-- Event Details -->
+  <section>
+    <h2 class="section-title">💒 Hochzeits-Details</h2>
+    <div class="card">
+      <div class="form-grid">
+        <div class="field">
+          <label>Braut (Gelin)</label>
+          <input id="bride_name" type="text" placeholder="z. B. Ayşe" />
+        </div>
+        <div class="field">
+          <label>Bräutigam (Damat)</label>
+          <input id="groom_name" type="text" placeholder="z. B. Mehmet" />
+        </div>
+        <div class="field">
+          <label>Datum (Tarih)</label>
+          <input id="event_date" type="text" placeholder="z. B. 15. Juni 2025" />
+        </div>
+        <div class="field">
+          <label>Uhrzeit (Saat)</label>
+          <input id="event_time" type="text" placeholder="z. B. 18:00 Uhr" />
+        </div>
+        <div class="field">
+          <label>Saalname (Mekan Adı)</label>
+          <input id="venue_name" type="text" placeholder="z. B. Kristall Saal" />
+        </div>
+        <div class="field">
+          <label>Adresse</label>
+          <input id="venue_address" type="text" placeholder="z. B. Musterstraße 1, 12345 Berlin" />
+        </div>
+        <div class="field">
+          <label>Deine WhatsApp-Nummer (Antworten kommen hierhin)</label>
+          <input id="host_phone" type="tel" placeholder="z. B. +49 176 12345678" />
+        </div>
+        <div class="field full">
+          <label>WhatsApp-Nachrichtenvorlage</label>
+          <textarea id="message_template" placeholder="Nachrichtenvorlage..."></textarea>
+          <small style="color:var(--muted); font-size:.78rem; margin-top:4px;">
+            Platzhalter: {{name}} {{bride}} {{groom}} {{date}} {{time}} {{venue}} {{link}}
+          </small>
+        </div>
+      </div>
+      <div style="margin-top:20px">
+        <button class="btn btn-primary" onclick="saveEvent()">💾 Speichern</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Guests -->
+  <section>
+    <h2 class="section-title">👥 Gästeliste</h2>
+    <div class="card">
+
+      <!-- Add guest -->
+      <div class="add-row" style="margin-bottom:20px">
+        <div class="field" style="min-width:200px; flex:2">
+          <label>Name</label>
+          <input id="new-name" type="text" placeholder="Vor- und Nachname" onkeydown="if(event.key==='Enter') addGuest()" />
+        </div>
+        <div class="field" style="min-width:180px; flex:2">
+          <label>WhatsApp-Nummer</label>
+          <input id="new-phone" type="tel" placeholder="+49 176 ..." onkeydown="if(event.key==='Enter') addGuest()" />
+        </div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <button class="btn btn-primary" onclick="addGuest()">+ Hinzufügen</button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Telefon</th>
+              <th>Status</th>
+              <th>Einladung</th>
+              <th>Einladungslink</th>
+              <th>Aktionen</th>
+            </tr>
+          </thead>
+          <tbody id="guest-tbody">
+            <tr><td colspan="7"><div class="empty-state"><div class="icon">🌹</div>Noch keine Gäste</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Action bar -->
+      <div class="actions-bar">
+        <button class="btn btn-gold" onclick="sendAll()" id="btn-send-all">
+          📨 Alle einladen (WhatsApp)
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="loadGuests()">🔄 Aktualisieren</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div id="toast"></div>
+
+<script>
+const BASE = '';
+
+// ── Utils ──────────────────────────────────────────────────────────────────
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.className = ''; }, 3500);
+}
+
+async function api(method, path, body) {
+  const res = await fetch(BASE + path, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || 'Fehler');
+  return json;
+}
+
+function rsvpLabel(rsvp) {
+  const map = { yes:'✅ Zusage', no:'❌ Absage', maybe:'🤔 Vielleicht', pending:'⏳ Ausstehend' };
+  const cls  = { yes:'yes', no:'no', maybe:'maybe', pending:'pending' };
+  return `<span class="badge badge-${cls[rsvp]||'pending'}">${map[rsvp]||rsvp}</span>`;
+}
+
+function sentLabel(sent, sentAt) {
+  if (sent) {
+    const d = sentAt ? new Date(sentAt).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+    return `<span class="badge badge-sent">📨 ${d}</span>`;
+  }
+  return `<span class="badge badge-unsent">Nicht gesendet</span>`;
+}
+
+// ── Event ──────────────────────────────────────────────────────────────────
+async function loadEvent() {
+  const e = await api('GET', '/api/event');
+  ['bride_name','groom_name','event_date','event_time','venue_name','venue_address','host_phone','message_template']
+    .forEach(k => { document.getElementById(k).value = e[k] || ''; });
+}
+
+async function saveEvent() {
+  const fields = ['bride_name','groom_name','event_date','event_time','venue_name','venue_address','host_phone','message_template'];
+  const body = {};
+  fields.forEach(k => { body[k] = document.getElementById(k).value; });
+  await api('PUT', '/api/event', body);
+  toast('Hochzeitsdetails gespeichert ✓', 'success');
+}
+
+// ── Stats ──────────────────────────────────────────────────────────────────
+async function loadStats() {
+  const s = await api('GET', '/api/guests/stats');
+  document.getElementById('s-total').textContent   = s.total   || 0;
+  document.getElementById('s-yes').textContent     = s.yes     || 0;
+  document.getElementById('s-no').textContent      = s.no      || 0;
+  document.getElementById('s-maybe').textContent   = s.maybe   || 0;
+  document.getElementById('s-pending').textContent = s.pending || 0;
+  document.getElementById('s-sent').textContent    = s.sent    || 0;
+}
+
+// ── WhatsApp ───────────────────────────────────────────────────────────────
+let waInterval = null;
+
+async function loadWAStatus() {
+  const s = await api('GET', '/api/whatsapp');
+  const badge = document.getElementById('wa-badge');
+  const qrCont = document.getElementById('qr-container');
+  const qrImg  = document.getElementById('qr-img');
+
+  const labels = { ready:'✅ Verbunden', qr:'📷 QR-Code scannen', connecting:'⏳ Verbinde…', disconnected:'❌ Nicht verbunden' };
+  badge.className = 'wa-badge ' + (s.status || 'disconnected');
+  badge.innerHTML = `<span class="dot"></span> ${labels[s.status] || s.status}`;
+
+  if (s.status === 'qr' && s.qrCode) {
+    qrCont.style.display = 'block';
+    qrImg.src = s.qrCode;
+  } else {
+    qrCont.style.display = 'none';
+  }
+
+  if (s.status === 'ready' || s.status === 'disconnected') {
+    clearInterval(waInterval);
+    waInterval = null;
+  } else if (!waInterval) {
+    waInterval = setInterval(loadWAStatus, 3000);
+  }
+}
+
+async function initWA() {
+  await api('POST', '/api/whatsapp/init');
+  toast('WhatsApp wird initialisiert…');
+  if (!waInterval) waInterval = setInterval(loadWAStatus, 3000);
+  loadWAStatus();
+}
+
+// ── Guests ─────────────────────────────────────────────────────────────────
+let guests = [];
+
+async function loadGuests() {
+  guests = await api('GET', '/api/guests');
+  renderGuests();
+  loadStats();
+}
+
+function renderGuests() {
+  const tbody = document.getElementById('guest-tbody');
+  if (!guests.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="icon">🌹</div>Noch keine Gäste hinzugefügt</div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = guests.map((g, i) => {
+    const inviteUrl = `${location.origin}/invite.html?token=${g.token}`;
+    return `
+    <tr>
+      <td style="color:var(--muted)">${i + 1}</td>
+      <td><strong>${esc(g.name)}</strong></td>
+      <td style="font-size:.85rem; color:var(--muted)">${esc(g.phone)}</td>
+      <td>${rsvpLabel(g.rsvp)}</td>
+      <td>${sentLabel(g.sent, g.sent_at)}</td>
+      <td>
+        <div class="invite-link-cell" title="${inviteUrl}">
+          <a href="${inviteUrl}" target="_blank" style="color:var(--primary); text-decoration:none; font-size:.78rem">${inviteUrl}</a>
+        </div>
+      </td>
+      <td>
+        <div style="display:flex; gap:6px; flex-wrap:wrap">
+          <button class="btn btn-green btn-sm btn-icon" title="Einladung senden" onclick="sendOne(${g.id})">📨</button>
+          <a class="btn btn-chat btn-sm" href="https://wa.me/${waPhone(g.phone)}" target="_blank" title="WhatsApp-Chat öffnen">💬</a>
+          <button class="btn btn-outline btn-sm btn-icon" title="Link kopieren" onclick="copyLink('${inviteUrl}')">🔗</button>
+          <button class="btn btn-red btn-sm btn-icon" title="Löschen" onclick="deleteGuest(${g.id})">🗑</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function waPhone(phone) {
+  let n = phone.replace(/\D/g, '');
+  if (n.startsWith('00')) n = n.slice(2);
+  else if (n.startsWith('0')) n = '49' + n.slice(1);
+  return n;
+}
+
+async function addGuest() {
+  const name  = document.getElementById('new-name').value.trim();
+  const phone = document.getElementById('new-phone').value.trim();
+  if (!name || !phone) { toast('Name und Telefonnummer erforderlich', 'error'); return; }
+  await api('POST', '/api/guests', { name, phone });
+  document.getElementById('new-name').value  = '';
+  document.getElementById('new-phone').value = '';
+  toast(`${name} hinzugefügt ✓`, 'success');
+  loadGuests();
+}
+
+async function deleteGuest(id) {
+  if (!confirm('Gast wirklich löschen?')) return;
+  await api('DELETE', `/api/guests/${id}`);
+  toast('Gast gelöscht', '');
+  loadGuests();
+}
+
+async function sendOne(id) {
+  try {
+    await api('POST', `/api/send/${id}`);
+    toast('Einladung gesendet ✓', 'success');
+    loadGuests();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function sendAll() {
+  const btn = document.getElementById('btn-send-all');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Sende…';
+  try {
+    const r = await api('POST', '/api/send-all');
+    toast(`✅ ${r.sent} gesendet${r.failed ? `, ❌ ${r.failed} fehlgeschlagen` : ''}`, r.failed ? 'error' : 'success');
+    loadGuests();
+  } catch (e) {
+    toast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '📨 Alle einladen (WhatsApp)';
+  }
+}
+
+function copyLink(url) {
+  navigator.clipboard.writeText(url).then(() => toast('Link kopiert ✓', 'success'));
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+loadEvent();
+loadGuests();
+loadWAStatus();
+setInterval(loadGuests, 30000);
+</script>
+</body>
+</html>
