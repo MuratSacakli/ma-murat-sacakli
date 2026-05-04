@@ -316,9 +316,60 @@
       color: rgba(255,255,255,.7);
     }
     .error-state h2 { color: white; font-family: 'Playfair Display', serif; margin-bottom: 12px; }
+
+    /* ── Music button ────────────────────────────────────────────────── */
+    #music-btn {
+      position: fixed;
+      top: 16px; right: 16px;
+      z-index: 200;
+      width: 46px; height: 46px;
+      border-radius: 50%;
+      background: rgba(123,30,46,.8);
+      backdrop-filter: blur(10px);
+      color: var(--gold-lt);
+      font-size: 1.3rem;
+      border: 2px solid var(--gold);
+      cursor: pointer;
+      transition: all .2s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #music-btn:hover { background: rgba(74,14,26,.95); transform: scale(1.1); }
+    #music-btn.playing { animation: musicPulse 1.5s ease-in-out infinite; }
+    @keyframes musicPulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(201,160,54,.5); }
+      50%     { box-shadow: 0 0 0 10px rgba(201,160,54,0); }
+    }
+
+    /* ── Preview banner ──────────────────────────────────────────────── */
+    #preview-banner {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      background: rgba(201,160,54,.95);
+      color: #2a1208;
+      text-align: center;
+      padding: 8px 16px;
+      font-size: .82rem;
+      font-weight: 700;
+      z-index: 300;
+      letter-spacing: .05em;
+    }
   </style>
 </head>
 <body>
+
+<div id="preview-banner">👁 VORSCHAU-MODUS · Kein echter Gast · Keine RSVP-Funktion aktiv</div>
+
+<!-- Music toggle -->
+<button id="music-btn" onclick="toggleMusic()" title="Musik an/aus">🎵</button>
+<!--
+  🎵 MUSIK HINZUFÜGEN:
+  Laden Sie eine .mp3-Datei hoch und ersetzen Sie die leere src-URL.
+  Beispiel: <source src="/music/wedding.mp3" type="audio/mpeg">
+-->
+<audio id="bg-music" loop preload="none">
+  <source src="" type="audio/mpeg">
+</audio>
 
 <!-- Floating petals -->
 <div class="petal-canvas" id="petals"></div>
@@ -354,10 +405,38 @@
   }
 })();
 
-// ── Load data ─────────────────────────────────────────────────────────────
-const token = new URLSearchParams(location.search).get('token');
+// ── Music ─────────────────────────────────────────────────────────────────
+function toggleMusic() {
+  const audio = document.getElementById('bg-music');
+  const btn   = document.getElementById('music-btn');
+  const src   = audio.querySelector('source').getAttribute('src');
+  if (!src) {
+    btn.title = 'Keine Musik konfiguriert — bitte .mp3-Pfad in invite.html eintragen';
+    btn.textContent = '🚫';
+    setTimeout(() => { btn.textContent = '🎵'; btn.title = 'Musik an/aus'; }, 2000);
+    return;
+  }
+  if (audio.paused) {
+    audio.play().then(() => { btn.textContent = '🔇'; btn.classList.add('playing'); });
+  } else {
+    audio.pause();
+    btn.textContent = '🎵';
+    btn.classList.remove('playing');
+  }
+}
 
-if (!token) {
+// ── Load data ─────────────────────────────────────────────────────────────
+const params    = new URLSearchParams(location.search);
+const token     = params.get('token');
+const isPreview = params.get('preview') === '1';
+
+if (isPreview) {
+  document.getElementById('preview-banner').style.display = 'block';
+  fetch('/api/event')
+    .then(r => r.json())
+    .then(ev => render({ guest: { name: 'Vorschau-Gast', rsvp: 'pending', token: 'preview' }, event: ev }))
+    .catch(() => showError('Ereignis nicht konfiguriert.', 'Etkinlik ayarlanmamış.'));
+} else if (!token) {
   showError('Kein Einladungstoken gefunden.', 'Token bulunamadı.');
 } else {
   fetch(`/api/invite/${token}`)
@@ -370,7 +449,7 @@ if (!token) {
 function render({ guest, event }) {
   const root = document.getElementById('root');
 
-  const alreadyRsvp = guest.rsvp !== 'pending';
+  const alreadyRsvp = guest.rsvp !== 'pending' && !isPreview;
   const rsvpLabels = {
     yes:   { de: 'Du hast zugesagt',      tr: 'Katılacaksınız' },
     no:    { de: 'Du hast abgesagt',       tr: 'Katılamayacaksınız' },
@@ -433,14 +512,15 @@ function render({ guest, event }) {
       <div class="rsvp-title">Katılım Durumunuzu Bildirin</div>
       <div class="rsvp-sub">Bitte teilen Sie uns Ihre Antwort mit · Lütfen cevap veriniz</div>
 
+      ${isPreview ? `<div style="background:rgba(201,160,54,.15); border:1px dashed var(--gold); border-radius:8px; padding:10px; font-size:.8rem; color:#7a5a40; margin-bottom:16px">👁 Vorschau — RSVP-Buttons im echten Einsatz aktiv</div>` : ''}
       <div class="rsvp-buttons" id="rsvp-btns">
-        <button class="rsvp-btn yes   ${alreadyRsvp && guest.rsvp==='yes'   ? 'selected':''}" onclick="rsvp('yes',   this)" ${alreadyRsvp?'disabled':''}>
+        <button class="rsvp-btn yes   ${alreadyRsvp && guest.rsvp==='yes'   ? 'selected':''}" onclick="rsvp('yes',   this)" ${alreadyRsvp||isPreview?'disabled':''}>
           <span class="emoji">✅</span>Zusage<br><small style="font-weight:300">Katılacağım</small>
         </button>
-        <button class="rsvp-btn no    ${alreadyRsvp && guest.rsvp==='no'    ? 'selected':''}" onclick="rsvp('no',    this)" ${alreadyRsvp?'disabled':''}>
+        <button class="rsvp-btn no    ${alreadyRsvp && guest.rsvp==='no'    ? 'selected':''}" onclick="rsvp('no',    this)" ${alreadyRsvp||isPreview?'disabled':''}>
           <span class="emoji">❌</span>Absage<br><small style="font-weight:300">Katılamayacağım</small>
         </button>
-        <button class="rsvp-btn maybe ${alreadyRsvp && guest.rsvp==='maybe' ? 'selected':''}" onclick="rsvp('maybe', this)" ${alreadyRsvp?'disabled':''}>
+        <button class="rsvp-btn maybe ${alreadyRsvp && guest.rsvp==='maybe' ? 'selected':''}" onclick="rsvp('maybe', this)" ${alreadyRsvp||isPreview?'disabled':''}>
           <span class="emoji">🤔</span>Vielleicht<br><small style="font-weight:300">Belki</small>
         </button>
       </div>
@@ -481,6 +561,7 @@ function buildConfirmHtml(status, labels, hostPhone, guestName) {
 
 // ── RSVP action ───────────────────────────────────────────────────────────
 async function rsvp(status, btn) {
+  if (isPreview) return;
   const btns = document.querySelectorAll('.rsvp-btn');
   btns.forEach(b => b.disabled = true);
 

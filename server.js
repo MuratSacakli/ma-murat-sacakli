@@ -82,8 +82,9 @@ app.post('/api/whatsapp/init', async (req, res) => {
 
 // ─── Send invitations ─────────────────────────────────────────────────────────
 
-function buildMessage(template, guest, event) {
-  const inviteUrl = `${BASE_URL}/invite.html?token=${guest.token}`;
+const ALLOWED_TEMPLATES = ['invite.html', 'invite-islamic.html', 'invite-oriental.html'];
+
+function buildMessage(template, guest, event, inviteUrl) {
   return template
     .replace(/{{name}}/g, guest.name)
     .replace(/{{bride}}/g, event.bride_name)
@@ -94,12 +95,19 @@ function buildMessage(template, guest, event) {
     .replace(/{{link}}/g, inviteUrl);
 }
 
+function resolveTemplate(raw) {
+  const tpl = raw && ALLOWED_TEMPLATES.includes(raw) ? raw : 'invite.html';
+  return tpl;
+}
+
 app.post('/api/send/:id', async (req, res) => {
   const guest = guestStmt.get.get(req.params.id);
   if (!guest) return res.status(404).json({ error: 'Gast nicht gefunden' });
 
-  const event = eventStmt.get.get();
-  const message = buildMessage(event.message_template, guest, event);
+  const event     = eventStmt.get.get();
+  const tpl       = resolveTemplate(req.body.template);
+  const inviteUrl = `${BASE_URL}/${tpl}?token=${guest.token}`;
+  const message   = buildMessage(event.message_template, guest, event, inviteUrl);
 
   try {
     await wa.sendMessage(guest.phone, message);
@@ -116,12 +124,14 @@ app.post('/api/send-all', async (req, res) => {
     return res.status(400).json({ error: 'WhatsApp nicht verbunden' });
   }
 
-  const guests = guestStmt.all.all();
-  const event = eventStmt.get.get();
+  const guests  = guestStmt.all.all();
+  const event   = eventStmt.get.get();
+  const tpl     = resolveTemplate(req.body.template);
   const results = { sent: 0, failed: 0, errors: [] };
 
   for (const guest of guests) {
-    const message = buildMessage(event.message_template, guest, event);
+    const inviteUrl = `${BASE_URL}/${tpl}?token=${guest.token}`;
+    const message   = buildMessage(event.message_template, guest, event, inviteUrl);
     try {
       await wa.sendMessage(guest.phone, message);
       guestStmt.markSent.run({ id: guest.id, sent_at: new Date().toISOString() });

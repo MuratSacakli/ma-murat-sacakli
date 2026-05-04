@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Düğün Davetiyesi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Great+Vibes&family=Lato:wght@300;400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy:    #080E2A;
+      --indigo:  #131B4D;
+      --crimson: #6B0F1A;
+      --crimson2:#8B1A28;
+      --teal:    #00838F;
+      --teal-lt: #4DB6AC;
+      --gold:    #D4AF37;
+      --gold-lt: #F0D060;
+      --ivory:   #FFF8EE;
+      --warm:    #FDF0DC;
+      --text:    #1E0A0A;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: radial-gradient(ellipse at 30% 20%, #1B1040 0%, var(--navy) 50%, #020510 100%);
+      font-family: 'Lato', sans-serif;
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    /* ── Floating lanterns ───────────────────────────────────────────── */
+    .lantern-canvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .lantern {
+      position: absolute;
+      font-size: 28px;
+      opacity: 0;
+      filter: drop-shadow(0 0 12px rgba(212,175,55,.6));
+      transform-origin: top center;
+      animation: lanternFloat ease-in-out infinite;
+    }
+    @keyframes lanternFloat {
+      0%          { opacity: 0; transform: translateY(10px) rotate(-5deg); }
+      10%         { opacity: .8; }
+      40%,60%     { transform: translateY(-8px) rotate(5deg); }
+      80%,20%     { transform: translateY(10px) rotate(-5deg); }
+      90%         { opacity: .8; }
+      100%        { opacity: 0; transform: translateY(10px) rotate(-5deg); }
+    }
+    .particle {
+      position: absolute;
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: var(--gold-lt);
+      opacity: 0;
+      animation: particleFall linear infinite;
+    }
+    @keyframes particleFall {
+      0%   { opacity: 0; transform: translateY(-10px); }
+      20%  { opacity: .8; }
+      100% { opacity: 0; transform: translateY(80px); }
+    }
+
+    /* ── Page ────────────────────────────────────────────────────────── */
+    .page {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: center;
+      padding: 40px 16px 72px;
+      min-height: 100vh;
+    }
+
+    .card {
+      background: var(--ivory);
+      border-radius: 2px;
+      max-width: 510px;
+      width: 100%;
+      box-shadow:
+        0 0 0 2px var(--crimson),
+        0 0 0 6px rgba(212,175,55,.2),
+        0 0 0 8px var(--gold),
+        0 0 0 14px rgba(212,175,55,.1),
+        0 48px 120px rgba(0,0,0,.8);
+      animation: cardIn 1s ease both;
+      overflow: hidden;
+    }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(40px) scale(.96); }
+      to   { opacity: 1; transform: translateY(0)   scale(1); }
+    }
+
+    /* ── Iznik tile top border ───────────────────────────────────────── */
+    .iznik-border {
+      height: 20px;
+      position: relative;
+      overflow: hidden;
+      background: var(--teal);
+    }
+    .iznik-border::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 10px 10px, var(--gold) 3px, transparent 3px),
+        radial-gradient(circle at 30px 10px, var(--gold) 3px, transparent 3px),
+        repeating-linear-gradient(90deg, transparent 0px, transparent 18px, rgba(255,255,255,.15) 18px, rgba(255,255,255,.15) 20px);
+      background-size: 40px 20px, 40px 20px, 40px 20px;
+    }
+    .iznik-border::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0; right: 0;
+      height: 3px;
+      background: var(--gold);
+    }
+
+    /* ── Header ──────────────────────────────────────────────────────── */
+    .ornament-top {
+      background: linear-gradient(160deg, var(--crimson) 0%, #3A0510 60%, var(--crimson2) 100%);
+      padding: 36px 24px 32px;
+      text-align: center;
+      position: relative;
+    }
+
+    /* Lanterns in header */
+    .header-lanterns {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 16px;
+      animation: fadeUp .8s .1s both;
+    }
+    .header-lanterns .hl {
+      font-size: 2.2rem;
+      filter: drop-shadow(0 0 10px rgba(212,175,55,.7));
+      animation: lanternSway 3s ease-in-out infinite;
+    }
+    .header-lanterns .hl:nth-child(2) { animation-delay: .5s; }
+    .header-lanterns .hl:nth-child(3) { animation-delay: 1s; }
+    @keyframes lanternSway {
+      0%,100% { transform: rotate(-6deg); }
+      50%     { transform: rotate(6deg); }
+    }
+
+    .ornament-band {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 14px;
+      animation: fadeUp .8s .2s both;
+    }
+    .ornament-band .line {
+      flex: 1;
+      max-width: 80px;
+      height: 1px;
+      background: linear-gradient(to right, transparent, var(--gold));
+    }
+    .ornament-band .line.r { background: linear-gradient(to left, transparent, var(--gold)); }
+    .ornament-band .sym { color: var(--gold); font-size: 1rem; letter-spacing: 3px; }
+
+    .invite-title {
+      font-family: 'Cinzel Decorative', serif;
+      font-size: .7rem;
+      color: var(--gold-lt);
+      letter-spacing: .3em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      animation: fadeUp .8s .3s both;
+    }
+    .dear-guest {
+      color: rgba(255,255,255,.8);
+      font-size: .9rem;
+      font-weight: 300;
+      animation: fadeUp .8s .4s both;
+    }
+    .dear-guest strong { color: var(--gold-lt); font-weight: 400; }
+
+    /* ── Tulip row ───────────────────────────────────────────────────── */
+    .tulip-divider {
+      background: linear-gradient(180deg, #3A0510 0%, var(--crimson) 100%);
+      padding: 10px 24px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .tulip-divider .tl-line {
+      flex: 1;
+      height: 1px;
+      background: rgba(212,175,55,.4);
+    }
+    .tulip-div-icons { display: flex; gap: 4px; }
+    .tulip-div-icons span {
+      font-size: 1.3rem;
+      animation: tulipBloom 2s ease-in-out infinite;
+    }
+    .tulip-div-icons span:nth-child(2) { animation-delay: .3s; }
+    .tulip-div-icons span:nth-child(3) { animation-delay: .6s; }
+    @keyframes tulipBloom {
+      0%,100% { transform: scale(1) rotate(0deg); }
+      50%     { transform: scale(1.15) rotate(5deg); }
+    }
+
+    /* ── Names ───────────────────────────────────────────────────────── */
+    .names-block {
+      background: var(--ivory);
+      padding: 36px 24px 20px;
+      text-align: center;
+    }
+    .name {
+      font-family: 'Great Vibes', cursive;
+      font-size: 3.6rem;
+      color: var(--crimson);
+      line-height: 1.1;
+      animation: fadeUp .8s .5s both;
+    }
+    .amp {
+      font-family: 'Cinzel Decorative', serif;
+      color: var(--teal);
+      font-size: 1.4rem;
+      margin: 8px 0;
+      animation: fadeUp .8s .57s both;
+    }
+    .name.groom { animation-delay: .63s; }
+
+    /* ── Ottoman divider ─────────────────────────────────────────────── */
+    .ottoman-div {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 32px 20px;
+      animation: fadeUp .8s .7s both;
+    }
+    .ottoman-div .od-line {
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(to right, transparent, var(--teal));
+    }
+    .ottoman-div .od-line.r { background: linear-gradient(to left, transparent, var(--teal)); }
+    .ottoman-div .od-icon { color: var(--gold); font-size: 1.5rem; letter-spacing: 4px; }
+
+    /* ── Details ─────────────────────────────────────────────────────── */
+    .details {
+      padding: 0 32px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      background: var(--ivory);
+    }
+    .detail-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      animation: fadeUp .8s both;
+    }
+    .detail-row:nth-child(1) { animation-delay: .75s; }
+    .detail-row:nth-child(2) { animation-delay: .82s; }
+    .detail-row:nth-child(3) { animation-delay: .89s; }
+
+    .detail-icon {
+      width: 40px; height: 40px;
+      border-radius: 4px;
+      background: linear-gradient(135deg, var(--crimson), #3A0510);
+      border: 1.5px solid var(--teal);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(107,15,26,.2);
+    }
+    .detail-text { line-height: 1.4; }
+    .detail-label { font-size: .7rem; text-transform: uppercase; letter-spacing: .1em; color: var(--teal); font-weight: 700; }
+    .detail-value { font-family: 'Cinzel Decorative', serif; font-size: .92rem; color: var(--text); margin-top: 3px; }
+    .detail-sub   { font-size: .82rem; color: #6a4a3a; margin-top: 1px; font-family: 'Lato', sans-serif; }
+
+    /* ── RSVP ────────────────────────────────────────────────────────── */
+    .rsvp-block {
+      background: linear-gradient(180deg, var(--warm) 0%, #F5E8CC 100%);
+      border-top: 3px solid var(--teal);
+      padding: 28px 24px 36px;
+      text-align: center;
+    }
+    .rsvp-title {
+      font-family: 'Cinzel Decorative', serif;
+      font-size: .95rem;
+      color: var(--crimson);
+      margin-bottom: 4px;
+      animation: fadeUp .8s .95s both;
+    }
+    .rsvp-sub {
+      font-size: .82rem;
+      color: #7a4a2a;
+      margin-bottom: 24px;
+      animation: fadeUp .8s 1s both;
+    }
+    .rsvp-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      animation: fadeUp .8s 1.05s both;
+    }
+    .rsvp-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 16px 22px;
+      border-radius: 4px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: .88rem;
+      transition: all .25s;
+      min-width: 105px;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    }
+    .rsvp-btn .emoji { font-size: 1.8rem; }
+    .rsvp-btn:hover  { transform: translateY(-3px); box-shadow: 0 6px 18px rgba(0,0,0,.12); }
+
+    .rsvp-btn.yes   { border-color: #2d6a2d; color: #2d6a2d; }
+    .rsvp-btn.yes:hover    { background: #e8f5e9; }
+    .rsvp-btn.yes.selected { background: #2d6a2d; color: white; }
+
+    .rsvp-btn.no    { border-color: var(--crimson2); color: var(--crimson2); }
+    .rsvp-btn.no:hover     { background: #fce4ec; }
+    .rsvp-btn.no.selected  { background: var(--crimson2); color: white; }
+
+    .rsvp-btn.maybe { border-color: var(--teal); color: var(--teal); }
+    .rsvp-btn.maybe:hover  { background: #e0f2f1; }
+    .rsvp-btn.maybe.selected { background: var(--teal); color: white; }
+
+    .rsvp-btn:disabled { opacity: .5; cursor: not-allowed; transform: none !important; }
+
+    #confirm-msg {
+      display: none;
+      margin-top: 24px;
+      padding: 16px 20px;
+      border-radius: 6px;
+      background: white;
+      border-left: 4px solid var(--teal);
+      text-align: left;
+      animation: fadeUp .5s both;
+    }
+    #confirm-msg .conf-title { font-weight: 700; color: var(--crimson); margin-bottom: 4px; }
+    #confirm-msg .conf-sub   { font-size: .85rem; color: #6a4a3a; }
+    #confirm-msg .conf-wa    {
+      display: inline-flex; align-items: center; gap: 8px;
+      margin-top: 12px; padding: 10px 18px;
+      background: #25D366; color: white;
+      border-radius: 6px; text-decoration: none;
+      font-size: .88rem; font-weight: 600;
+      transition: background .2s;
+    }
+    #confirm-msg .conf-wa:hover { background: #1ebe57; }
+
+    /* ── Footer ──────────────────────────────────────────────────────── */
+    .footer-ornament {
+      background: linear-gradient(160deg, var(--crimson) 0%, #3A0510 100%);
+      padding: 20px 24px;
+      text-align: center;
+    }
+    .footer-ornament::before {
+      content: '';
+      display: block;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      margin-bottom: 16px;
+    }
+    .footer-text {
+      font-size: .85rem;
+      color: rgba(240,208,96,.8);
+      line-height: 1.6;
+    }
+    .footer-tulips { font-size: 1.5rem; letter-spacing: 6px; margin-top: 8px; }
+
+    /* ── Shared ──────────────────────────────────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .loading, .error-state {
+      text-align: center;
+      padding: 80px 24px;
+      color: var(--gold-lt);
+      background: transparent;
+    }
+    .loading .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid rgba(212,175,55,.25);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-state h2 { color: white; font-family: 'Cinzel Decorative', serif; margin-bottom: 12px; }
+
+    /* ── Music button ────────────────────────────────────────────────── */
+    #music-btn {
+      position: fixed;
+      top: 16px; right: 16px;
+      z-index: 200;
+      width: 46px; height: 46px;
+      border-radius: 50%;
+      background: rgba(8,14,42,.75);
+      backdrop-filter: blur(10px);
+      color: var(--gold);
+      font-size: 1.3rem;
+      border: 2px solid var(--gold);
+      cursor: pointer;
+      transition: all .2s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #music-btn:hover { background: rgba(8,14,42,.95); transform: scale(1.1); }
+    #music-btn.playing { animation: musicPulse 1.5s ease-in-out infinite; }
+    @keyframes musicPulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(212,175,55,.4); }
+      50%     { box-shadow: 0 0 0 8px rgba(212,175,55,0); }
+    }
+
+    /* ── Preview banner ──────────────────────────────────────────────── */
+    #preview-banner {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      background: rgba(212,175,55,.95);
+      color: #1E0A0A;
+      text-align: center;
+      padding: 8px 16px;
+      font-size: .82rem;
+      font-weight: 700;
+      z-index: 300;
+      letter-spacing: .05em;
+    }
+  </style>
+</head>
+<body>
+
+<div id="preview-banner">👁 VORSCHAU-MODUS · Kein echter Gast · Keine RSVP-Funktion aktiv</div>
+
+<!-- Music toggle -->
+<button id="music-btn" onclick="toggleMusic()" title="Musik an/aus">🎵</button>
+<!--
+  🎵 MUSIK HINZUFÜGEN:
+  Laden Sie eine .mp3-Datei hoch und ersetzen Sie die leere src-URL.
+  Beispiel: <source src="/music/wedding.mp3" type="audio/mpeg">
+-->
+<audio id="bg-music" loop preload="none">
+  <source src="" type="audio/mpeg">
+</audio>
+
+<div class="lantern-canvas" id="lanterns"></div>
+
+<div class="page">
+  <div id="root">
+    <div class="card">
+      <div class="loading">
+        <div class="spinner"></div>
+        Davetiye yükleniyor…
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Floating lanterns ─────────────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('lanterns');
+  const lamps  = ['🪔','🕯️','✨','🌟'];
+  for (let i = 0; i < 12; i++) {
+    const el = document.createElement('div');
+    el.className = 'lantern';
+    el.textContent = lamps[i % lamps.length];
+    el.style.left              = (5 + Math.random() * 90) + 'vw';
+    el.style.top               = (5 + Math.random() * 80) + 'vh';
+    el.style.animationDuration = (4 + Math.random() * 6) + 's';
+    el.style.animationDelay    = (Math.random() * 8) + 's';
+    el.style.fontSize          = (20 + Math.random() * 16) + 'px';
+    canvas.appendChild(el);
+  }
+  for (let i = 0; i < 20; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left              = Math.random() * 100 + 'vw';
+    p.style.top               = Math.random() * 100 + 'vh';
+    p.style.animationDuration = (3 + Math.random() * 5) + 's';
+    p.style.animationDelay    = (Math.random() * 8) + 's';
+    canvas.appendChild(p);
+  }
+})();
+
+// ── Music ─────────────────────────────────────────────────────────────────
+function toggleMusic() {
+  const audio = document.getElementById('bg-music');
+  const btn   = document.getElementById('music-btn');
+  const src   = audio.querySelector('source').getAttribute('src');
+  if (!src) {
+    btn.title = 'Keine Musik konfiguriert — bitte .mp3 in invite-oriental.html eintragen';
+    btn.textContent = '🚫';
+    setTimeout(() => { btn.textContent = '🎵'; btn.title = 'Musik an/aus'; }, 2000);
+    return;
+  }
+  if (audio.paused) {
+    audio.play().then(() => { btn.textContent = '🔇'; btn.classList.add('playing'); });
+  } else {
+    audio.pause();
+    btn.textContent = '🎵';
+    btn.classList.remove('playing');
+  }
+}
+
+// ── Load data ─────────────────────────────────────────────────────────────
+const params    = new URLSearchParams(location.search);
+const token     = params.get('token');
+const isPreview = params.get('preview') === '1';
+
+if (isPreview) {
+  document.getElementById('preview-banner').style.display = 'block';
+  fetch('/api/event')
+    .then(r => r.json())
+    .then(ev => render({ guest: { name: 'Vorschau-Gast', rsvp: 'pending', token: 'preview' }, event: ev }))
+    .catch(() => showError('Ereignis nicht konfiguriert.', 'Etkinlik ayarlanmamış.'));
+} else if (token) {
+  fetch(`/api/invite/${token}`)
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(render)
+    .catch(() => showError('Einladung nicht gefunden.', 'Davetiye bulunamadı.'));
+} else {
+  showError('Kein Einladungstoken.', 'Token bulunamadı.');
+}
+
+function render({ guest, event }) {
+  document.title = `${event.bride_name} & ${event.groom_name} — Düğün Davetiyesi`;
+  const alreadyRsvp = guest.rsvp !== 'pending' && !isPreview;
+
+  document.getElementById('root').innerHTML = `
+  <div class="card">
+    <div class="iznik-border"></div>
+
+    <div class="ornament-top">
+      <div class="header-lanterns">
+        <span class="hl">🪔</span>
+        <span class="hl">🕯️</span>
+        <span class="hl">🪔</span>
+      </div>
+      <div class="ornament-band">
+        <div class="line"></div>
+        <span class="sym">✦ ❋ ✦</span>
+        <div class="line r"></div>
+      </div>
+      <div class="invite-title">Düğün Davetiyesi · Hochzeitseinladung</div>
+      <div class="dear-guest">
+        Sayın / Liebe·r <strong>${esc(guest.name)}</strong>,<br>
+        <span style="font-size:.82rem; opacity:.8">sizi düğünümüze davet etmekten şeref duyuyoruz.</span>
+      </div>
+    </div>
+
+    <div class="tulip-divider">
+      <div class="tl-line"></div>
+      <div class="tulip-div-icons"><span>🌷</span><span>🌸</span><span>🌷</span></div>
+      <div class="tl-line"></div>
+    </div>
+
+    <div class="names-block">
+      <div class="name bride">${esc(event.bride_name)}</div>
+      <div class="amp">✦ &amp; ✦</div>
+      <div class="name groom">${esc(event.groom_name)}</div>
+    </div>
+
+    <div class="ottoman-div">
+      <div class="od-line"></div>
+      <span class="od-icon">💍</span>
+      <div class="od-line r"></div>
+    </div>
+
+    <div class="details">
+      <div class="detail-row">
+        <div class="detail-icon">📅</div>
+        <div class="detail-text">
+          <div class="detail-label">Tarih · Datum</div>
+          <div class="detail-value">${esc(event.event_date)}</div>
+        </div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-icon">⏰</div>
+        <div class="detail-text">
+          <div class="detail-label">Saat · Uhrzeit</div>
+          <div class="detail-value">${esc(event.event_time)}</div>
+        </div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-icon">📍</div>
+        <div class="detail-text">
+          <div class="detail-label">Mekan · Veranstaltungsort</div>
+          <div class="detail-value">${esc(event.venue_name)}</div>
+          ${event.venue_address ? `<div class="detail-sub">${esc(event.venue_address)}</div>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <div class="rsvp-block">
+      <div class="rsvp-title">Katılım Durumunuzu Bildirin</div>
+      <div class="rsvp-sub">Bitte teilen Sie uns Ihre Antwort mit · Lütfen cevap veriniz</div>
+      ${isPreview ? `<div style="background:rgba(212,175,55,.15); border:1px dashed var(--gold); border-radius:6px; padding:10px; font-size:.8rem; color:#7a4a2a; margin-bottom:16px">👁 Vorschau — RSVP-Buttons im echten Einsatz aktiv</div>` : ''}
+      <div class="rsvp-buttons" id="rsvp-btns">
+        <button class="rsvp-btn yes   ${alreadyRsvp && guest.rsvp==='yes'   ? 'selected':''}" onclick="rsvp('yes',this)"   ${alreadyRsvp||isPreview?'disabled':''}>
+          <span class="emoji">✅</span>Zusage<br><small style="font-weight:300">Katılacağım</small>
+        </button>
+        <button class="rsvp-btn no    ${alreadyRsvp && guest.rsvp==='no'    ? 'selected':''}" onclick="rsvp('no',this)"    ${alreadyRsvp||isPreview?'disabled':''}>
+          <span class="emoji">❌</span>Absage<br><small style="font-weight:300">Katılamayacağım</small>
+        </button>
+        <button class="rsvp-btn maybe ${alreadyRsvp && guest.rsvp==='maybe' ? 'selected':''}" onclick="rsvp('maybe',this)" ${alreadyRsvp||isPreview?'disabled':''}>
+          <span class="emoji">🤔</span>Vielleicht<br><small style="font-weight:300">Belki</small>
+        </button>
+      </div>
+      <div id="confirm-msg" ${alreadyRsvp ? 'style="display:block"' : ''}>
+        ${alreadyRsvp ? buildConfirmHtml(guest.rsvp, event.host_phone, guest.name) : ''}
+      </div>
+    </div>
+
+    <div class="footer-ornament">
+      <div class="footer-text">
+        Sizi aramızda görmekten mutluluk duyarız<br>
+        ${esc(event.bride_name)} &amp; ${esc(event.groom_name)}
+      </div>
+      <div class="footer-tulips">🌷 🕯️ 🌷</div>
+    </div>
+    <div class="iznik-border"></div>
+  </div>`;
+}
+
+function buildConfirmHtml(status, hostPhone, guestName) {
+  const labels = {
+    yes:   { de:'Du hast zugesagt ✅',     tr:'Katılacaksınız' },
+    no:    { de:'Du hast abgesagt ❌',      tr:'Katılamayacaksınız' },
+    maybe: { de:'Du bist noch unsicher 🤔', tr:'Belki katılırsınız' }
+  };
+  const waTexts = {
+    yes:   encodeURIComponent(`✅ Katılacağım! Ich sage gerne zu! 🎉 (${guestName})`),
+    no:    encodeURIComponent(`❌ Katılamayacağım. Ich muss leider absagen. 😔 (${guestName})`),
+    maybe: encodeURIComponent(`🤔 Belki katılırım. Ich bin noch unsicher. (${guestName})`)
+  };
+  const waNum  = hostPhone ? waPhone(hostPhone) : '';
+  const waLink = waNum ? `https://wa.me/${waNum}?text=${waTexts[status]}` : null;
+  const l      = labels[status];
+  return `
+    <div class="conf-title">${l.de}</div>
+    <div class="conf-sub">${l.tr} — Teşekkür ederiz / Vielen Dank!</div>
+    ${waLink ? `<a class="conf-wa" href="${waLink}" target="_blank">💬 Über WhatsApp bestätigen · WhatsApp ile onayla</a>` : ''}
+  `;
+}
+
+async function rsvp(status, btn) {
+  if (isPreview) return;
+  const btns = document.querySelectorAll('.rsvp-btn');
+  btns.forEach(b => b.disabled = true);
+  try {
+    const res  = await fetch(`/api/rsvp/${token}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status }) });
+    const data = await res.json();
+    btns.forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    const confDiv = document.getElementById('confirm-msg');
+    confDiv.innerHTML = buildConfirmHtml(status, data.hostPhone, data.guestName);
+    confDiv.style.display = 'block';
+    const waLink = confDiv.querySelector('.conf-wa');
+    if (waLink) setTimeout(() => waLink.click(), 1200);
+  } catch (e) {
+    btns.forEach(b => b.disabled = false);
+    alert('Fehler: ' + e.message);
+  }
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function waPhone(p) { let n=p.replace(/\D/g,''); if(n.startsWith('00'))n=n.slice(2); else if(n.startsWith('0'))n='49'+n.slice(1); return n; }
+function showError(de, tr) {
+  document.getElementById('root').innerHTML = `<div class="card"><div class="error-state"><h2>🕌 Einladung nicht gefunden</h2><p>${de}<br>${tr}</p></div></div>`;
+}
+</script>
+</body>
+</html>
